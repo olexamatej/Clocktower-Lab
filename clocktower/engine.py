@@ -482,6 +482,9 @@ class Engine:
         self.nominators.add(nominator.id)
         self.nominated.add(target.id)
         self.emit("nomination", {"nominator": nominator.id, "nominee": target.id})
+        self._on_nomination(nominator)
+        if self.result:
+            return True
         if target.role == "virgin" and "virgin" not in target.used and target.alive:
             target.used.add("virgin")
             if (
@@ -531,6 +534,9 @@ class Engine:
         )
         return False
 
+    def _on_nomination(self, nominator: Player):
+        pass
+
     def _extra_day_options(self, p: Player) -> list[dict]:
         return []
 
@@ -559,10 +565,11 @@ class Engine:
                     (
                         "Speak, whisper, publicly gossip, or pass."
                         if self.config.script == "bad_moon_rising"
+                        else "Speak, whisper, or pass." if self.config.script == "sects_and_violets"
                         else "Speak, whisper, claim a Slayer shot, or pass."
                     )
                     if talking
-                    else "Claim a Slayer shot or pass.",
+                    else "Use an available day ability or pass.",
                     options,
                     talking,
                 )

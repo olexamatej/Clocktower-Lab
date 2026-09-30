@@ -113,6 +113,20 @@ def test_frontend_configuration_persona_launch_and_replay(tmp_path):
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 page.screenshot(path=f"/tmp/clocktower-bmr-export-{device}.png", full_page=True)
 
+            page.get_by_role("button", name="Game setup", exact=True).click()
+            page.locator("#script").select_option("sects_and_violets")
+            expect(page.locator("#players .player")).to_have_count(10)
+            page.locator("#save-config").click()
+            expect(page.locator("#notice")).to_contain_text("Configuration saved")
+            page.locator("#launch").click()
+            expect(page.locator("#run-status")).to_contain_text("INTERRUPTED", timeout=10000)
+            expect(page.locator("#scenario")).to_contain_text("Sects & Violets")
+            expect(page.locator("#role-guide .guide-role")).to_have_count(25)
+            expect(page.locator("#seating .seat")).to_have_count(10)
+            for width, height, device in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+                page.set_viewport_size({"width": width, "height": height})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                page.screenshot(path=f"/tmp/clocktower-sv-{device}.png", full_page=True)
             assert not errors
             browser.close()
     finally:

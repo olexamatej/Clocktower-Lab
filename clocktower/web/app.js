@@ -337,6 +337,7 @@ const bindings = {
   "shuffle-roles": ["shuffle_roles"],
 };
 function renderConfig() {
+  $("sv-setup-help").hidden = config.script !== "sects_and_violets";
   for (const [id, path] of Object.entries(bindings)) {
     const n = $(id),
       value = path.reduce((o, k) => o[k], config);
@@ -610,13 +611,14 @@ function renderGameContext(events, state) {
   const script = runData.script || "trouble_brewing";
   const scriptInfo = scripts.find((s) => s.id === script);
   const bmr = script === "bad_moon_rising";
+  const sv = script === "sects_and_violets";
   const scenario = $("scenario");
   if (scenario.dataset.script !== script) {
     scenario.dataset.script = script;
     scenario.replaceChildren();
-    scenario.append(el("p", "THE SCENARIO", "eyebrow"), el("h2", scriptInfo?.name || script), el("p", bmr ? "Deaths can deceive. Test claims against unexpected survival, multiple night deaths, and resurrection. Find which Demon is haunting the town." : "A Demon hides among the townsfolk. Discuss your information, question claims, nominate suspects, and vote before night falls.", "muted"));
+    scenario.append(el("p", "THE SCENARIO", "eyebrow"), el("h2", scriptInfo?.name || script), el("p", sv ? "Information can turn against you. Untangle false clues, rival twins, and cursed nominations while hunting the Demon." : bmr ? "Deaths can deceive. Test claims against unexpected survival, multiple night deaths, and resurrection. Find which Demon is haunting the town." : "A Demon hides among the townsfolk. Discuss your information, question claims, nominate suspects, and vote before night falls.", "muted"));
     const objectives = el("div", undefined, "objectives");
-    objectives.append(el("p", bmr ? "GOOD · Eliminate the Demon. Beware the Zombuul’s apparent death and the Mastermind’s extra day." : "GOOD · Eliminate the Demon. A healthy Mayor can also win with three alive and no execution."), el("p", bmr ? "EVIL · Reach two actually living players. On the Mastermind’s extra day, an executed player’s team loses." : "EVIL · Survive until only two players live, or have a healthy Saint executed."));
+    objectives.append(el("p", sv ? "GOOD · Eliminate the Demon and break any active living Evil Twin pair. Execute carefully." : bmr ? "GOOD · Eliminate the Demon. Beware the Zombuul’s apparent death and the Mastermind’s extra day." : "GOOD · Eliminate the Demon. A healthy Mayor can also win with three alive and no execution."), el("p", sv ? "EVIL · Keep a Demon alive at two living players, get the good twin executed, or let a day pass without execution while Vortox is active." : bmr ? "EVIL · Reach two actually living players. On the Mastermind’s extra day, an executed player’s team loses." : "EVIL · Survive until only two players live, or have a healthy Saint executed."));
     scenario.append(objectives);
   }
   const gm = $("game-master");
@@ -649,7 +651,7 @@ function renderGameContext(events, state) {
     guide.dataset.script = script;
     guide.replaceChildren();
     $("role-guide-title").textContent = `${scriptInfo?.name || script} · character guide`;
-    guide.append(el("p", "All possible characters in this script; this list does not reveal which are in play.", "help"));
+    guide.append(el("p", sv ? "Full Sects & Violets reference, including bluff options. The current engine supports the fixed ten-player example roster; it does not implement other character abilities yet." : "All possible characters in this script; this list does not reveal which are in play.", "help"));
     for (const team of ["townsfolk", "outsider", "minion", "demon"]) {
       guide.append(el("h3", team === "townsfolk" || team === "outsider" ? `${team} · Good` : `${team} · Evil`, "team-heading"));
       roles.filter((r) => r.team === team && scriptInfo?.roles.includes(r.id)).forEach((r) => {
@@ -783,6 +785,14 @@ for (const [id, path] of Object.entries(bindings))
     parent[path.at(-1)] = n.type === "checkbox" ? n.checked : (n.type === "number" || id === "godfather-outsiders") ? Number(n.value) : n.value;
   });
 $("script").addEventListener("change", () => {
+  if (config.script === "sects_and_violets") {
+    config.roles = null;
+    $("player-count").value = 10;
+    $("player-count").onchange();
+    renderConfig();
+    return;
+  }
+  $("sv-setup-help").hidden = true;
   if (config.roles) config.roles = config.players.map(() => "");
   renderPlayers();
 });

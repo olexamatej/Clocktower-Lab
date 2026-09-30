@@ -4,6 +4,7 @@ This is a clean rewrite. Never write to production.
 
 ## Architecture
 - `clocktower/bmr.py`: Bad Moon Rising rules extending the shared state machine.
+- `clocktower/sv.py`: the supported ten-player Sects & Violets roster; other S&V setups are rejected.
 - `clocktower/archives.py`: versioned full-run import/export; imports are inert replays.
 - `clocktower/engine.py`: authoritative game state, script abilities, legal actions and audience-scoped events. No network, filesystem, or model calls.
 - `clocktower/roles.py`: Trouble Brewing script registry and role instructions.

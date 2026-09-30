@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "name": "Sects & Violets · 10 Luna · low · fast",
+  "script": "sects_and_violets",
+  "seed": 42,
+  "players": [
+    {
+      "id": "p1",
+      "name": "Player 1",
+      "persona": "builtin:analyst",
+      "model": {}
+    },
+    {
+      "id": "p2",
+      "name": "Player 2",
+      "persona": "builtin:skeptic",
+      "model": {
+        "model": "gpt-6-luna"
+      }
+    },
+    {
+      "id": "p3",
+      "name": "Player 3",
+      "persona": "builtin:diplomat",
+      "model": {}
+    },
+    {
+      "id": "p4",
+      "name": "Player 4",
+      "persona": "builtin:interrogator",
+      "model": {
+        "model": "gpt-6-luna"
+      }
+    },
+    {
+      "id": "p5",
+      "name": "Player 5",
+      "persona": "builtin:observer",
+      "model": {}
+    },
+    {
+      "id": "p6",
+      "name": "Player 6",
+      "persona": "builtin:gambler",
+      "model": {
+        "model": "gpt-6-luna"
+      }
+    },
+    {
+      "id": "p7",
+      "name": "Player 7",
+      "persona": "builtin:contrarian",
+      "model": {}
+    },
+    {
+      "id": "p8",
+      "name": "Player 8",
+      "persona": "builtin:performer",
+      "model": {
+        "model": "gpt-6-luna"
+      }
+    },
+    {
+      "id": "p9",
+      "name": "Player 9",
+      "persona": "builtin:improviser",
+      "model": {}
+    },
+    {
+      "id": "p10",
+      "name": "Player 10",
+      "persona": "builtin:strategist",
+      "model": {
+        "model": "gpt-6-luna"
+      }
+    }
+  ],
+  "defaults": {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "service_tier": "fast",
+    "base_url": null,
+    "credential_env": null,
+    "generation": {
+      "reasoning_effort": "low"
+    },
+    "max_output_tokens": 4096,
+    "context_tokens": 128000,
+    "memory": "recent",
+    "timeout_seconds": 180.0,
+    "retries": 0,
+    "input_cost_per_million": null,
+    "output_cost_per_million": null
+  },
+  "policy": {
+    "misinformation": "random",
+    "registration": "natural",
+    "mayor_bounce": "random",
+    "godfather_outsiders": 1,
+    "pacifist_save": "random",
+    "shabaloth_regurgitate": "random",
+    "tinker_death": "never",
+    "imp_successor": "random"
+  },
+  "limits": {
+    "max_days": 20,
+    "max_turns": 3000,
+    "max_tokens": 0,
+    "runtime_seconds": 7200.0,
+    "action_retries": 2
+  },
+  "conversations": {
+    "rounds": 2,
+    "whispers": true,
+    "max_message_chars": 1500
+  },
+  "roles": [
+    "clockmaker",
+    "dreamer",
+    "flowergirl",
+    "town_crier",
+    "oracle",
+    "seamstress",
+    "sage",
+    "evil_twin",
+    "witch",
+    "vortox"
+  ],
+  "shuffle_roles": true
+}

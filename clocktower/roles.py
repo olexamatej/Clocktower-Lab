@@ -332,3 +332,46 @@ BAD_MOON_RISING = Script(
 )
 SCRIPTS[BAD_MOON_RISING.id] = BAD_MOON_RISING
 SCRIPT_NAMES = {"trouble_brewing": "Trouble Brewing", "bad_moon_rising": "Bad Moon Rising"}
+
+# The full script is available for bluffing and reference. The current engine
+# supports the explicit ten-player roster below; other setups are rejected.
+_SV = [
+    ("clockmaker", "Clockmaker", "townsfolk", "Start knowing the shortest seating distance between the Demon and a Minion."),
+    ("dreamer", "Dreamer", "townsfolk", "Each night choose another player. Learn one good and one evil character; one is their character."),
+    ("snake_charmer", "Snake Charmer", "townsfolk", "Each night choose a living player. If a Demon, swap characters and alignments with them; the former Demon becomes poisoned."),
+    ("mathematician", "Mathematician", "townsfolk", "Each night learn how many players' abilities worked abnormally since dawn because of another character's ability."),
+    ("flowergirl", "Flowergirl", "townsfolk", "Each night after the first learn whether a Demon voted during the previous day."),
+    ("town_crier", "Town Crier", "townsfolk", "Each night after the first learn whether any Minion nominated during the previous day."),
+    ("oracle", "Oracle", "townsfolk", "Each night after the first learn how many dead players are evil."),
+    ("savant", "Savant", "townsfolk", "Each day privately receive two statements from the Storyteller: one true and one false."),
+    ("seamstress", "Seamstress", "townsfolk", "Once per game at night choose two other players and learn whether their alignments match."),
+    ("philosopher", "Philosopher", "townsfolk", "Once per game at night choose a good character and gain its ability. An in-play player with that character becomes drunk."),
+    ("artist", "Artist", "townsfolk", "Once per game during the day privately ask the Storyteller a yes/no question and receive a truthful answer."),
+    ("juggler", "Juggler", "townsfolk", "On your first day publicly guess up to five players' characters. That night learn how many guesses were correct."),
+    ("sage", "Sage", "townsfolk", "If the Demon kills you, learn two players, one of whom is the Demon that killed you."),
+    ("mutant", "Mutant", "outsider", "If you are mad about being an Outsider, the Storyteller may execute you."),
+    ("sweetheart", "Sweetheart", "outsider", "When you die, a player becomes drunk for the rest of the game."),
+    ("barber", "Barber", "outsider", "If you die during the day or night, the Demon may swap the characters of two players who are not Demons that night."),
+    ("klutz", "Klutz", "outsider", "When you learn you died, publicly choose a living player. If they are evil, your team loses."),
+    ("evil_twin", "Evil Twin", "minion", "You and an opposing player know each other and each other's characters. Executing the good twin makes evil win. Good cannot win while both twins live."),
+    ("witch", "Witch", "minion", "Each night choose a player. If they nominate tomorrow, they die; their nomination still counts. Your ability stops when only three players live."),
+    ("cerenovus", "Cerenovus", "minion", "Each night choose a player and a good character. Tomorrow they must be mad about being that character or risk execution."),
+    ("pit_hag", "Pit-Hag", "minion", "Each night after the first choose a player and a character not in play for them to become. If a Demon is created, tonight's deaths are arbitrary."),
+    ("fang_gu", "Fang Gu", "demon", "Each night after the first choose a player to die. The first Outsider you would kill instead becomes an evil Fang Gu and you die. Setup adds one Outsider."),
+    ("vigormortis", "Vigormortis", "demon", "Each night after the first choose a player to die. Minions you kill retain their abilities and poison one of their Townsfolk neighbors. Setup removes one Outsider."),
+    ("no_dashii", "No Dashii", "demon", "Each night after the first choose a player to die. Your two Townsfolk neighbors are poisoned."),
+    ("vortox", "Vortox", "demon", "Each night after the first choose a player to die. Townsfolk abilities give false information. If nobody is executed during a day, evil wins."),
+]
+ROLES.update({row[0]: Role(*row) for row in _SV})
+SV_RUN_ROLES = (
+    "clockmaker", "dreamer", "flowergirl", "town_crier", "oracle", "seamstress", "sage",
+    "evil_twin", "witch", "vortox",
+)
+SECTS_AND_VIOLETS = Script(
+    "sects_and_violets",
+    tuple(row[0] for row in _SV),
+    ("evil_twin", "witch", "clockmaker", "dreamer", "seamstress"),
+    ("witch", "vortox", "dreamer", "flowergirl", "town_crier", "oracle", "seamstress"),
+)
+SCRIPTS[SECTS_AND_VIOLETS.id] = SECTS_AND_VIOLETS
+SCRIPT_NAMES[SECTS_AND_VIOLETS.id] = "Sects & Violets"

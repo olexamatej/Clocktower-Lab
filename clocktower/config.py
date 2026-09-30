@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .roles import COUNTS, ROLES, SCRIPTS
+from .roles import COUNTS, ROLES, SCRIPTS, SV_RUN_ROLES
 
 
 class StrictModel(BaseModel):
@@ -122,7 +122,7 @@ class Conversations(StrictModel):
 class GameConfig(StrictModel):
     version: Literal[1] = 1
     name: str = Field(default="Trouble in Ravenswood", min_length=1, max_length=100)
-    script: Literal["trouble_brewing", "bad_moon_rising"] = "trouble_brewing"
+    script: Literal["trouble_brewing", "bad_moon_rising", "sects_and_violets"] = "trouble_brewing"
     seed: int = 42
     players: list[PlayerConfig] = Field(min_length=5, max_length=15)
     defaults: ModelConfig = Field(default_factory=ModelConfig)
@@ -156,6 +156,10 @@ class GameConfig(StrictModel):
             raise ValueError("Player names must be unique")
         for p in self.players:
             self.model_for(p)
+        if self.script == "sects_and_violets" and (
+            len(self.players) != 10 or (self.roles is not None and set(self.roles) != set(SV_RUN_ROLES))
+        ):
+            raise ValueError("Sects & Violets currently supports the ten-player example roster only")
         if (
             self.script == "bad_moon_rising"
             and self.policy.godfather_outsiders == -1

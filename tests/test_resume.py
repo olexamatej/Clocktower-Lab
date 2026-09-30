@@ -24,7 +24,7 @@ class NotesProvider:
 
 
 async def stopped_run(tmp_path, script):
-    config = demo_config()
+    config = demo_config(10 if script == "sects_and_violets" else 7)
     config.script = script
     provider = NotesProvider()
     runner = Runner(config, Store(tmp_path), {"mock": provider})
@@ -38,7 +38,7 @@ async def stopped_run(tmp_path, script):
     return runner, json.loads(json.dumps(record)), provider
 
 
-@pytest.mark.parametrize("script", ["trouble_brewing", "bad_moon_rising"])
+@pytest.mark.parametrize("script", ["trouble_brewing", "bad_moon_rising", "sects_and_violets"])
 async def test_resume_retains_pending_memory_usage_identity_and_history(tmp_path, script):
     original, record, provider = await stopped_run(tmp_path, script)
     source = copy.deepcopy(record)

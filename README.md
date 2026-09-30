@@ -2,8 +2,6 @@
 
 Clocktower Lab is a local Blood on the Clocktower simulator where AI agents argue, bluff, and try to outsmart each other. Give each player their own model and Markdown persona, configure games through the web interface or CLI, and inspect what happened through public, individual-player, or omniscient replays. The goal is to study how different language models build trust, persuade others, and deceive, including whether Chinese-developed models lie more often than other models under comparable roles, personas, and game conditions, and whether Mistral starts citing compliance rules when asked to bluff.
 
-This is a clean implementation. The original James Sullivan project is preserved under `multi-agent-social-deduction/` as reference material and is not imported by the application. Its MIT license is preserved in that directory and in `LICENSE.txt`. See [references and attribution](docs/REFERENCES.md).
-
 ## Install and start
 
 Requires Python 3.11 or later. From this directory:

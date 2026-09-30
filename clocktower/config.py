@@ -108,7 +108,7 @@ class Policy(StrictModel):
 class Limits(StrictModel):
     max_days: int = Field(default=20, ge=1, le=100)
     max_turns: int = Field(default=3000, ge=1, le=50000)
-    max_tokens: int = Field(default=1000000, ge=1, le=100000000)
+    max_tokens: int = Field(default=1000000, ge=0, le=100000000)
     runtime_seconds: float = Field(default=3600, ge=1, le=86400)
     action_retries: int = Field(default=2, ge=0, le=5)
 

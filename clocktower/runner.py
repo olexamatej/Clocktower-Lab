@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import os
 import time
@@ -102,6 +103,64 @@ class Runner:
         for value in self.secrets:
             text = text.replace(value, "[REDACTED]")
         return text
+
+    @classmethod
+    def resume(cls, record: dict, store: Store, *, max_tokens: int | None = None) -> Runner:
+        """Rebuild a local interrupted game without requesting any model completions.
+
+        Every generated event must match the saved history before continuation is
+        allowed. This also restores the generator position and seeded RNG state.
+        """
+        from .archives import RunRecord
+
+        if record.get("imported_from"):
+            raise ValueError("Imported archives are replay-only")
+        saved = RunRecord.model_validate(record).model_dump(mode="json")
+        if saved["status"] != "interrupted":
+            raise ValueError("Only interrupted local games can be resumed")
+        if (
+            not saved["events"]
+            or saved["events"][-1]["kind"] != "result"
+            or saved["events"][-1]["data"] != saved["result"]
+        ):
+            raise ValueError("Interrupted history must end with its matching result event")
+        config = GameConfig.model_validate(saved["config"])
+        runner = cls(config, store)
+        runner.personas = copy.deepcopy(saved["personas"])
+        runner.models = {pid: ModelConfig.model_validate(m) for pid, m in saved["models"].items()}
+        history = saved["events"][:-1]
+        runner.engine.advance()
+        checked = 0
+        while True:
+            generated = runner.engine.events
+            if json.loads(json.dumps(generated[checked:])) != history[checked : len(generated)]:
+                raise ValueError("Saved history differs from current game rules; refusing to resume")
+            checked = len(generated)
+            if checked == len(history):
+                break
+            event = history[checked]
+            if event["kind"] in ("usage", "recovery", "fallback"):
+                runner.engine.emit(event["kind"], copy.deepcopy(event["data"]), event["audience"])
+            elif event["kind"] == "action":
+                pending = runner.engine.pending
+                data = event["data"]
+                if pending is None or (pending.player, pending.kind) != (data["player"], data["kind"]):
+                    raise ValueError("Saved action does not match the pending decision")
+                action = data["action"]
+                if "notes" in action:
+                    runner.notes[pending.player] = action["notes"]
+                runner.engine.advance(action)
+                runner.turns += 1
+            else:
+                raise ValueError("Saved history cannot be reconstructed; refusing to resume")
+        if runner.turns != saved["turns"] or runner.engine.pending is None or runner.engine.result:
+            raise ValueError("Saved game has no consistent pending decision")
+        if max_tokens is not None:
+            runner.config.limits.max_tokens = max_tokens
+        runner.id = saved["id"]
+        runner.created = saved["created"]
+        runner.usage = copy.deepcopy(saved["usage"])
+        return runner
 
     def record(self) -> dict:
         return {
@@ -205,7 +264,11 @@ class Runner:
         for attempt in range(self.config.limits.action_retries + 1):
             # Reserve an upper bound before sending a paid request.
             bound = token_bound(system + json.dumps(payload, ensure_ascii=False)) + model.max_output_tokens
-            if model.provider != "mock" and self.total_tokens() + bound > self.config.limits.max_tokens:
+            if (
+                model.provider != "mock"
+                and self.config.limits.max_tokens
+                and self.total_tokens() + bound > self.config.limits.max_tokens
+            ):
                 raise ProviderError("Token limit reached before next request")
             completion = await self._request(model, system, payload)
             usage = self.usage[decision.player]
@@ -219,7 +282,7 @@ class Runner:
                     + usage["output_tokens"] * model.output_cost_per_million
                 ) / 1000000
             self.engine.emit("usage", {"player": decision.player, **usage}, [])
-            if self.total_tokens() > self.config.limits.max_tokens:
+            if self.config.limits.max_tokens and self.total_tokens() > self.config.limits.max_tokens:
                 raise ProviderError("Token limit reached")
             try:
                 action = decision.validate(
@@ -244,7 +307,7 @@ class Runner:
         self.started = time.monotonic()
         self.save()
         try:
-            decision = self.engine.advance()
+            decision = self.engine.pending or self.engine.advance()
             while decision and not self.engine.result:
                 if self.stop.is_set():
                     self.engine.interrupt("Stopped by operator")

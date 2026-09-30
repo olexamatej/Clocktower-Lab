@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import os
+import uuid
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -24,6 +25,9 @@ def main():
     web.add_argument("--port", type=int, default=8000)
     run = sub.add_parser("run", help="Run a saved JSON configuration without a frontend")
     run.add_argument("config", type=Path)
+    resume = sub.add_parser("resume", help="Resume a local interrupted game from its recorded decisions")
+    resume.add_argument("id")
+    resume.add_argument("--max-tokens", type=int, help="Total token budget, including prior usage; 0 removes the cap")
     run.add_argument(
         "--mock", action="store_true", help="Override all providers with the offline demo policy"
     )
@@ -52,7 +56,16 @@ def main():
     args = parser.parse_args()
     store = Store(args.data)
     try:
-        if args.command == "export-run":
+        if args.command == "resume":
+            record = store.read("runs", args.id)
+            runner = Runner.resume(record, store, max_tokens=args.max_tokens)
+            backup = store.root / "resume-backups"
+            backup.mkdir(exist_ok=True)
+            (backup / f"{runner.id}-{uuid.uuid4().hex}.json").write_text(json.dumps(record, indent=2) + "\n")
+            print(f"Resuming {runner.id} after {runner.turns} decisions", flush=True)
+            result = asyncio.run(runner.run())
+            print(json.dumps(result["result"], indent=2))
+        elif args.command == "export-run":
             args.output.write_text(json.dumps(export_archive(store.read("runs", args.id)), indent=2) + "\n")
             print(args.output)
         elif args.command == "import-run":

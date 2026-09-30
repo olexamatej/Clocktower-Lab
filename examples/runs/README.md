@@ -1,5 +1,22 @@
 # Reference games
 
+## Sects & Violets: ten Luna players
+
+[luna-fast-sects-and-violets-10-seed-42.json](luna-fast-sects-and-violets-10-seed-42.json) is the completed real Codex game started on September 30, 2026.
+
+- Script: Sects & Violets, using the [supported ten-character roster](../../docs/SECTS_AND_VIOLETS.md); ten distinct personas; setup seed 42.
+- Provider/models: Codex CLI, five `gpt-5.6-luna` and five `gpt-6-luna` players, alternating seats. All used low reasoning and fast service, with no total token cap.
+- Result: **Evil wins** — a day ended without an execution while the Vortox was alive and healthy.
+- Recorded activity: 166 decisions, 458 events, 3,182,332 input tokens and 26,135 output tokens.
+- Original run ID: `79a04a65c8d1440f80cb536303241a02`.
+
+```sh
+clocktower import-run examples/runs/luna-fast-sects-and-violets-10-seed-42.json
+clocktower web
+```
+
+The archive preserves all public and private conversations, role assignments, persona snapshots, and usage. Importing it creates a replay without calling models. This is one game using a fixed supported roster, not a comparison benchmark or a demonstration of full Sects & Violets support.
+
 ## Bad Moon Rising: ten Astra ultrafast players
 
 [astra-ultrafast-bad-moon-rising-10-seed-42.json](astra-ultrafast-bad-moon-rising-10-seed-42.json) is the completed real Codex game started on September 30, 2026.

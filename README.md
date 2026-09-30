@@ -113,7 +113,7 @@ Choose **Export full game** in a replay to download a versioned JSON archive con
 
 Use **Import run** in Run archive to add an archive as a new replay. Imports never overwrite another run, restore arbitrary files, or start model calls. In-progress snapshots are imported as interrupted replays, not resumable live processes. The maximum archive size is 50 MiB.
 
-Two [completed reference games](examples/runs/README.md) are included: seven-player Trouble Brewing with `gpt-6.1-sol`, and ten-player Bad Moon Rising with `gpt-6-astra` ultrafast. Both ended in good-team victories. Import their full archives to review the actual conversations and decisions.
+Three [completed reference games](examples/runs/README.md) are included: seven-player Trouble Brewing with `gpt-6.1-sol`, ten-player Bad Moon Rising with `gpt-6-astra` ultrafast, and the supported ten-player Sects & Violets roster with GPT-5.6 Luna and GPT-6 Luna on fast mode. Good won the first two; evil won Sects & Violets when a day ended without an execution under Vortox. Import their full archives to review the actual conversations and decisions.
 
 Local interrupted games can be continued with `clocktower resume RUN_ID`. The runner reconstructs the state from recorded decisions, verifies the complete event history against the current rules, and restores private notes and cumulative usage before making new model calls. It retains the run ID and saves the interrupted record under `data/resume-backups/`. Imported archives remain replay-only. A rules/history mismatch prevents resuming.
 
@@ -130,6 +130,14 @@ Choose **Bad Moon Rising** in the Scenario selector, or use `examples/bad-moon-r
 
 The local `configs/next-game.json` saved configuration, when present, is loaded on the setup screen at startup. It prepares a game; it does not start one automatically.
 
+## Sects & Violets example
+
+`examples/sects-and-violets.json` configures ten players alternating GPT-5.6 Luna and GPT-6 Luna, with low reasoning and fast service via Codex. It uses the supported ten-character roster and no total token cap. See [Sects & Violets support](docs/SECTS_AND_VIOLETS.md) for the exact roster, rules, and limitations. The full script is available for reference and bluffs, but other Sects & Violets setups are not yet implemented.
+
+```sh
+clocktower run examples/sects-and-violets.json
+```
+
 ## Watching a game
 
 Each player has a separate information context. For every decision, the Codex provider starts a fresh request containing that player's persona, the script rules, their role and private information, public history, whispers they participated in, their own saved notes, and the available legal actions. Other players' private information and notes are excluded. Players act sequentially when the rules engine requests a decision; they are not continuously running Codex chats.
@@ -142,7 +150,7 @@ Conversation cards show a numbered speaker, a named recipient (or **Everyone**),
 
 ## Rules and simulation policy
 
-[Rules and storyteller policy](docs/RULES.md) describes supported Trouble Brewing mechanics and the distinction between official rules and simulation pacing. Standard 5–15-player counts are supported, including the special 5–6-player setup-information rules. Travellers, Fabled, scripts other than Trouble Brewing and Bad Moon Rising, and human-controlled seats are not currently implemented.
+[Rules and storyteller policy](docs/RULES.md) describes supported Trouble Brewing mechanics and the distinction between official rules and simulation pacing. Trouble Brewing and Bad Moon Rising support 5–15 players. Sects & Violets currently supports only its documented ten-player roster. Travellers, Fabled, other scripts, and human-controlled seats are not currently implemented.
 
 The seed reproduces setup, mock decisions and storyteller choices **given the same action sequence**. Real model generation is nondeterministic, even where a generation seed is accepted. Replays render recorded events; they never call the model again.
 

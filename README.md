@@ -113,6 +113,8 @@ Choose **Export full game** in a replay to download a versioned JSON archive con
 
 Use **Import run** in Run archive to add an archive as a new replay. Imports never overwrite another run, restore arbitrary files, or start model calls. In-progress snapshots are imported as interrupted replays, not resumable live processes. The maximum archive size is 50 MiB.
 
+A [recorded seven-player Codex game](examples/runs/README.md) is included as a reference: Trouble Brewing with `gpt-6.1-sol`, ending in a good-team victory. Import its full archive to review the actual conversations and decisions.
+
 ```sh
 clocktower export-run RUN_ID game.json
 clocktower import-run game.json

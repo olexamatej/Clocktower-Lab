@@ -663,3 +663,28 @@ dialog footer {
 .page-heading .actions { flex-wrap: wrap; }
 .roster-role.good { color: #a6c8ff; }
 .roster-role.evil { color: #e9adc0; }
+
+/* Keep replay controls and conversations close together while reviewing a run. */
+main:has(#viewer:not([hidden])) {
+  max-width: 1680px;
+  padding: 1.25rem clamp(.75rem, 2vw, 1.75rem);
+}
+#viewer .page-heading { margin-bottom: 1rem; gap: .75rem; }
+#viewer .viewer-layout { gap: 1rem; }
+#viewer .panel { padding: .85rem; }
+#viewer .section-heading { margin-bottom: .65rem; gap: .65rem; }
+#viewer .scenario, #viewer .game-master { margin-bottom: .75rem; }
+#viewer .scenario > p { margin-block: .65rem; }
+#viewer .objectives { gap: .6rem; }
+#viewer .objectives p { padding: .6rem .75rem; }
+#viewer .result { padding: .7rem .85rem; margin-bottom: .75rem; }
+#viewer .chat-event { padding: .7rem .8rem; margin-bottom: .6rem; }
+#viewer .chat-event .message-body { margin-top: .5rem; }
+#viewer .roster-row { padding: .6rem 0; gap: .6rem; }
+#viewer .role-roster, #viewer .role-guide, #viewer .playback { margin-top: .75rem; }
+#viewer .playback input { margin: .65rem 0; }
+#viewer .playback .section-heading { margin-bottom: 0; }
+@media (max-width: 1100px) {
+  #viewer .viewer-layout .game-master { margin-bottom: 0; }
+  #viewer .role-roster, #viewer .role-guide, #viewer .playback { margin-top: 0; }
+}

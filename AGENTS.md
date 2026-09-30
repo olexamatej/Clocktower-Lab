@@ -1,6 +1,6 @@
 # Clocktower Lab
 
-This is a clean rewrite. `multi-agent-social-deduction/` is the untouched MIT-licensed upstream reference, not runtime code. Never write to production.
+This is a clean rewrite. Never write to production.
 
 ## Architecture
 - `clocktower/bmr.py`: Bad Moon Rising rules extending the shared state machine.

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Configure autonomous Blood on the Clocktower players, run local games, and inspect every perspective."
+    />
+    <title>Clocktower Lab</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="sigil">◷</span>
+        <div><strong>Clocktower Lab</strong><small>Autonomous social deduction</small></div>
+      </div>
+      <nav aria-label="Main">
+        <button data-tab="setup" class="active">Game setup</button
+        ><button data-tab="personas">Personas</button><button data-tab="runs">Run archive</button>
+      </nav>
+      <span class="local">LOCAL WORKSPACE</span>
+    </header>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <main>
+      <section id="setup" class="page">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">TROUBLE BREWING · 5–15 PLAYERS</p>
+            <h1>Assemble the town.</h1>
+          </div>
+          <div class="actions">
+            <button id="validate">Validate</button><button id="save-config">Save configuration</button
+            ><button id="launch" class="primary">Start game <span>▶</span></button>
+          </div>
+        </div>
+        <div class="setup-layout">
+          <aside class="panel settings">
+            <h2>The game</h2>
+            <label>Configuration name<input id="config-name" /></label>
+            <div class="two">
+              <label>Players<input id="player-count" type="number" min="5" max="15" /></label
+              ><label>Seed<input id="seed" type="number" /></label>
+            </div>
+            <label
+              >Saved configurations<select id="saved-config">
+                <option value="">Choose configuration…</option>
+              </select></label
+            >
+            <div class="actions wrap">
+              <button id="load-config">Load</button><button id="duplicate-config">Duplicate</button
+              ><button id="export-config">Export JSON</button
+              ><label class="button"
+                >Import JSON<input type="file" id="import-config" accept=".json" hidden
+              /></label>
+            </div>
+            <details open>
+              <summary>Conversations & limits</summary>
+              <div class="two">
+                <label>Conversation rounds<input id="rounds" type="number" min="0" max="20" /></label
+                ><label>Maximum days<input id="max-days" type="number" min="1" max="100" /></label
+                ><label>Maximum turns<input id="max-turns" type="number" min="1" /></label
+                ><label>Token budget<input id="max-tokens" type="number" min="1" /></label
+                ><label>Runtime (seconds)<input id="runtime" type="number" min="1" /></label
+                ><label>Action retries<input id="action-retries" type="number" min="0" max="5" /></label
+                ><label
+                  >Message characters<input id="max-message" type="number" min="100" max="10000"
+                /></label>
+              </div>
+              <label class="check"><input id="whispers" type="checkbox" /> Allow private conversations</label>
+            </details>
+            <details>
+              <summary>Storyteller policy</summary>
+              <label
+                >Impaired information<select id="misinformation">
+                  <option value="random">Seeded random</option>
+                  <option value="truthful_when_possible">Truthful when possible</option>
+                </select></label
+              ><label
+                >Spy / Recluse registration<select id="registration">
+                  <option value="natural">Natural identity</option>
+                  <option value="misregister">Always misregister</option>
+                  <option value="random">Seeded random</option>
+                </select></label
+              ><label
+                >Mayor redirection<select id="mayor-bounce">
+                  <option value="random">Seeded random</option>
+                  <option value="never">Never</option>
+                  <option value="always">Always</option>
+                </select></label
+              ><label
+                >Imp successor<select id="imp-successor">
+                  <option value="random">Seeded random</option>
+                  <option value="first_seat">First eligible seat</option>
+                </select></label
+              >
+            </details>
+            <details>
+              <summary>Shared model defaults</summary>
+              <div id="defaults-editor"></div>
+            </details>
+            <details>
+              <summary>Character setup</summary>
+              <label class="check"
+                ><input id="manual-roles" type="checkbox" /> Select characters per seat</label
+              ><label class="check"
+                ><input id="shuffle-roles" type="checkbox" /> Shuffle selected characters</label
+              >
+              <p class="help">
+                Standard distribution is enforced, including Baron’s two extra Outsiders. With 5–6 players,
+                evil receives no team information or bluffs.
+              </p>
+            </details>
+          </aside>
+          <div>
+            <div class="section-heading">
+              <h2>Players <span id="player-total"></span></h2>
+              <span class="muted">Clockwise seating · independent minds</span>
+            </div>
+            <div id="players" class="players"></div>
+            <p class="help">
+              Credentials stay on the backend. Set environment variables before starting the app. Each saved
+              seat gets its own editable Markdown persona.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="personas" class="page" hidden>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">PERSONALITY, NOT PRIVILEGE</p>
+            <h1>Voices around the table.</h1>
+          </div>
+          <button id="new-persona" class="primary">Create persona</button>
+        </div>
+        <p class="muted">
+          Ten built-in approaches. Duplicate a template or write your own. Role and alignment come from the
+          game.
+        </p>
+        <div id="persona-library" class="library"></div>
+      </section>
+      <section id="runs" class="page" hidden>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">THE RECORD</p>
+            <h1>Every night. Every decision.</h1>
+          </div>
+          <button id="refresh-runs">Refresh archive</button>
+        </div>
+        <div id="run-list" class="library"></div>
+      </section>
+      <section id="viewer" class="page" hidden>
+        <div class="page-heading">
+          <div>
+            <p id="run-status" class="eyebrow"></p>
+            <h1 id="run-title">Game</h1>
+          </div>
+          <div class="actions">
+            <label
+              >Perspective<select id="perspective">
+                <option value="public">Public</option>
+                <option value="omniscient">Omniscient</option>
+              </select></label
+            ><button id="stop-run" class="danger">Stop game</button
+            ><button id="download-run">Export visible events</button>
+          </div>
+        </div>
+        <div id="result-banner" class="result" hidden></div>
+        <div class="viewer-layout">
+          <div>
+            <div id="seating" class="seating panel"></div>
+            <div class="panel playback">
+              <div class="actions">
+                <button id="rewind" aria-label="Rewind">|◀</button><button id="play">Play</button
+                ><button id="step" aria-label="Next event">▶|</button><button id="live">Latest</button
+                ><select id="speed" aria-label="Playback speed">
+                  <option value="1000">1×</option>
+                  <option value="300">3×</option>
+                  <option value="100">10×</option>
+                </select>
+              </div>
+              <input id="scrubber" type="range" min="0" value="0" aria-label="Event position" />
+              <div class="section-heading"><span id="position"></span><span id="phase-label"></span></div>
+            </div>
+            <div id="usage" class="panel" hidden></div>
+          </div>
+          <div class="panel timeline-panel">
+            <div class="section-heading">
+              <h2>Timeline</h2>
+              <label
+                >Filter<select id="event-filter">
+                  <option value="all">All events</option>
+                  <option value="message">Conversations</option>
+                  <option value="nomination">Nominations</option>
+                  <option value="vote">Votes</option>
+                  <option value="death">Deaths</option>
+                  <option value="information">Private information</option>
+                  <option value="action">Role actions</option>
+                </select></label
+              >
+            </div>
+            <div id="timeline"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <dialog id="persona-dialog">
+      <form id="persona-form">
+        <div class="section-heading">
+          <h2 id="persona-title">Edit persona</h2>
+          <button type="button" id="close-persona" aria-label="Close">✕</button>
+        </div>
+        <p class="help">
+          Personality and strategy only. This text cannot grant game information or change the rules.
+        </p>
+        <div class="actions">
+          <button type="button" data-editor="guided">Guided editor</button
+          ><button type="button" data-editor="markdown">Markdown</button
+          ><button type="button" data-editor="preview">Preview</button
+          ><label class="button"
+            >Import .md<input type="file" id="import-persona" accept=".md,text/markdown,text/plain" hidden
+          /></label>
+        </div>
+        <div id="guided-editor"></div>
+        <label id="markdown-editor" hidden
+          >Markdown<textarea id="persona-markdown" rows="18"></textarea>
+        </label>
+        <article id="persona-preview" hidden></article>
+        <footer>
+          <button type="button" id="copy-persona">Save as copy</button
+          ><button class="primary" type="submit">Save persona</button>
+        </footer>
+      </form>
+    </dialog>
+    <footer class="site-footer">
+      Clocktower Lab · Local simulation workspace · Blood on the Clocktower by The Pandemonium Institute
+    </footer>
+  </body>
+</html>

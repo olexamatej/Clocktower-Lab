@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .roles import COUNTS, ROLES
+from .roles import COUNTS, ROLES, SCRIPTS
 
 
 class StrictModel(BaseModel):
@@ -13,8 +13,9 @@ class StrictModel(BaseModel):
 
 
 class ModelConfig(StrictModel):
-    provider: Literal["mock", "openai", "anthropic", "einfra", "compatible"] = "mock"
+    provider: Literal["mock", "codex", "openai", "anthropic", "einfra", "compatible"] = "mock"
     model: str = Field(default="demo", min_length=1, max_length=200)
+    service_tier: Literal["default", "fast", "ultrafast"] = "default"
     base_url: str | None = None
     credential_env: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]*$")
     generation: dict[str, float | int | str | list[str]] = Field(default_factory=dict)
@@ -28,6 +29,10 @@ class ModelConfig(StrictModel):
 
     @model_validator(mode="after")
     def capabilities(self):
+        if self.service_tier != "default" and self.provider != "codex":
+            raise ValueError("Service tiers are currently supported only by the Codex provider")
+        if self.service_tier == "ultrafast" and self.model != "gpt-6-astra":
+            raise ValueError("Ultrafast requires gpt-6-astra")
         if self.base_url:
             u = urlsplit(self.base_url)
             if u.username or u.password or u.query or u.fragment or not u.hostname:
@@ -45,6 +50,10 @@ class ModelConfig(StrictModel):
             allowed |= {"top_k"}
         if self.provider == "openai" and self.model.startswith(("o1", "o3", "o4", "gpt-5")):
             allowed = {"reasoning_effort"}
+        if self.provider == "codex":
+            allowed = {"reasoning_effort"}
+            if self.base_url or self.credential_env:
+                raise ValueError("Codex uses the local CLI login, not an endpoint or credential variable")
         unknown = set(self.generation) - allowed
         if unknown:
             raise ValueError(
@@ -89,6 +98,10 @@ class Policy(StrictModel):
     misinformation: Literal["random", "truthful_when_possible"] = "random"
     registration: Literal["natural", "misregister", "random"] = "natural"
     mayor_bounce: Literal["never", "always", "random"] = "random"
+    godfather_outsiders: Literal[-1, 1] = 1
+    pacifist_save: Literal["never", "random", "always"] = "random"
+    shabaloth_regurgitate: Literal["never", "random", "always"] = "random"
+    tinker_death: Literal["never", "random"] = "never"
     imp_successor: Literal["first_seat", "random"] = "random"
 
 
@@ -109,7 +122,7 @@ class Conversations(StrictModel):
 class GameConfig(StrictModel):
     version: Literal[1] = 1
     name: str = Field(default="Trouble in Ravenswood", min_length=1, max_length=100)
-    script: Literal["trouble_brewing"] = "trouble_brewing"
+    script: Literal["trouble_brewing", "bad_moon_rising"] = "trouble_brewing"
     seed: int = 42
     players: list[PlayerConfig] = Field(min_length=5, max_length=15)
     defaults: ModelConfig = Field(default_factory=ModelConfig)
@@ -143,15 +156,26 @@ class GameConfig(StrictModel):
             raise ValueError("Player names must be unique")
         for p in self.players:
             self.model_for(p)
+        if (
+            self.script == "bad_moon_rising"
+            and self.policy.godfather_outsiders == -1
+            and COUNTS[len(self.players)][1] == 0
+            and (self.roles is None or "godfather" in self.roles)
+        ):
+            raise ValueError("Godfather cannot remove an Outsider from a zero-Outsider setup")
         if self.roles is not None:
             if len(self.roles) != len(self.players) or len(set(self.roles)) != len(self.roles):
                 raise ValueError("Choose one unique character for each seat")
-            if any(r not in ROLES for r in self.roles):
-                raise ValueError("Unknown Trouble Brewing character")
+            if any(r not in SCRIPTS[self.script].roles for r in self.roles):
+                raise ValueError("Character does not belong to the selected script")
             counts = list(COUNTS[len(self.players)])
             if "baron" in self.roles:
                 counts[0] -= 2
                 counts[1] += 2
+            if "godfather" in self.roles:
+                delta = self.policy.godfather_outsiders
+                counts[0] -= delta
+                counts[1] += delta
             actual = [
                 sum(ROLES[r].team == t for r in self.roles)
                 for t in ("townsfolk", "outsider", "minion", "demon")

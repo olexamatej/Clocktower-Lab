@@ -8,6 +8,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from .archives import export_archive, import_archive
 from .config import GameConfig, ModelConfig, demo_config
 from .personas import validate_persona
 from .providers import HTTPProvider
@@ -43,10 +44,24 @@ def main():
     models.add_argument("provider", choices=["openai", "anthropic", "einfra", "compatible"])
     models.add_argument("--endpoint")
     models.add_argument("--credential-env")
+    export = sub.add_parser("export-run", help="Export a complete portable run archive, including private events")
+    export.add_argument("id")
+    export.add_argument("output", type=Path)
+    imported = sub.add_parser("import-run", help="Import a run archive as a new replay without starting models")
+    imported.add_argument("archive", type=Path)
     args = parser.parse_args()
     store = Store(args.data)
     try:
-        if args.command == "web":
+        if args.command == "export-run":
+            args.output.write_text(json.dumps(export_archive(store.read("runs", args.id)), indent=2) + "\n")
+            print(args.output)
+        elif args.command == "import-run":
+            if args.archive.stat().st_size > 50 * 1024 * 1024:
+                raise ValueError("Archive exceeds 50 MiB")
+            record = import_archive(json.loads(args.archive.read_text()))
+            store.write("runs", record["id"], record)
+            print(record["id"])
+        elif args.command == "web":
             import uvicorn
 
             from .api import create_app

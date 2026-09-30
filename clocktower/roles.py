@@ -165,3 +165,170 @@ TROUBLE_BREWING = Script(
     ("poisoner", "monk", "imp", "ravenkeeper", "undertaker", "empath", "fortune_teller", "butler", "spy"),
 )
 SCRIPTS = {TROUBLE_BREWING.id: TROUBLE_BREWING}
+
+# Ability summaries; official character rules: https://wiki.bloodontheclocktower.com/Bad_Moon_Rising
+_BMR = [
+    (
+        "grandmother",
+        "Grandmother",
+        "townsfolk",
+        "Start knowing a good player and their character. If the Demon kills them, you die too.",
+    ),
+    (
+        "sailor",
+        "Sailor",
+        "townsfolk",
+        "Each night choose a living player: you or they are drunk until dusk. While sober, you cannot die.",
+    ),
+    (
+        "chambermaid",
+        "Chambermaid",
+        "townsfolk",
+        "Each night choose two other living players: learn how many woke tonight to use their own ability.",
+    ),
+    (
+        "exorcist",
+        "Exorcist",
+        "townsfolk",
+        "Each night after the first choose a different player from last night. If they are the Demon, they learn who you are and do not wake tonight.",
+    ),
+    (
+        "innkeeper",
+        "Innkeeper",
+        "townsfolk",
+        "Each night after the first choose two players. They cannot die tonight, but one is drunk until dusk.",
+    ),
+    (
+        "gambler",
+        "Gambler",
+        "townsfolk",
+        "Each night after the first choose a player and guess their character. If wrong, you die.",
+    ),
+    (
+        "gossip",
+        "Gossip",
+        "townsfolk",
+        "Each day you may publicly gossip a definite statement. If true, a player dies tonight.",
+    ),
+    (
+        "courtier",
+        "Courtier",
+        "townsfolk",
+        "Once per game at night choose a character. They are drunk for three nights and three days.",
+    ),
+    (
+        "professor",
+        "Professor",
+        "townsfolk",
+        "Once per game at night after the first choose a dead player. If Townsfolk, they return to life with their ability refreshed.",
+    ),
+    (
+        "minstrel",
+        "Minstrel",
+        "townsfolk",
+        "When a Minion dies by execution, everyone except you is drunk until dusk tomorrow.",
+    ),
+    (
+        "tea_lady",
+        "Tea Lady",
+        "townsfolk",
+        "If your two nearest living neighbors are both good, neither can die.",
+    ),
+    ("pacifist", "Pacifist", "townsfolk", "A good player executed while you are alive might survive."),
+    ("fool", "Fool", "townsfolk", "The first time you would die, you survive instead."),
+    (
+        "goon",
+        "Goon",
+        "outsider",
+        "Each night the first player to choose you with their ability becomes drunk until dusk. You become their alignment.",
+    ),
+    (
+        "lunatic",
+        "Lunatic",
+        "outsider",
+        "You believe you are an evil Demon. Your choices have no Demon effect; the real Demon learns who you are and your night choices.",
+    ),
+    ("tinker", "Tinker", "outsider", "The Storyteller may cause you to die at any time."),
+    (
+        "moonchild",
+        "Moonchild",
+        "outsider",
+        "When you learn you died, publicly choose a living player. If they were good when chosen, they die tonight.",
+    ),
+    (
+        "godfather",
+        "Godfather",
+        "minion",
+        "Start knowing the Outsider characters in play. If an Outsider died today, choose a player tonight to die. Setup adds or removes one Outsider.",
+    ),
+    (
+        "devils_advocate",
+        "Devil's Advocate",
+        "minion",
+        "Each night choose a living player different from last night. They survive execution tomorrow.",
+    ),
+    (
+        "assassin",
+        "Assassin",
+        "minion",
+        "Once per game at night after the first choose a player to die, overcoming protection, including the Goon.",
+    ),
+    (
+        "mastermind",
+        "Mastermind",
+        "minion",
+        "If the Demon's execution death would end the game, play one extra day. The next executed player's team loses; no execution means good wins.",
+    ),
+    (
+        "zombuul",
+        "Zombuul",
+        "demon",
+        "Each night after the first, if nobody died today, choose a player to die. Your first death instead leaves you alive but registering as dead.",
+    ),
+    (
+        "pukka",
+        "Pukka",
+        "demon",
+        "Each night choose a player to poison. Your previous poisoned target dies, then becomes healthy.",
+    ),
+    (
+        "shabaloth",
+        "Shabaloth",
+        "demon",
+        "Each night after the first choose two players to die in order. A dead player chosen last night may return to life.",
+    ),
+    (
+        "po",
+        "Po",
+        "demon",
+        "Each night after the first choose one player to die, or nobody. After choosing nobody, your next action must choose three players to die in order.",
+    ),
+]
+ROLES.update({row[0]: Role(*row) for row in _BMR})
+BAD_MOON_RISING = Script(
+    "bad_moon_rising",
+    tuple(row[0] for row in _BMR),
+    ("sailor", "courtier", "godfather", "devils_advocate", "lunatic", "pukka", "grandmother", "chambermaid"),
+    (
+        "sailor",
+        "innkeeper",
+        "courtier",
+        "gambler",
+        "devils_advocate",
+        "exorcist",
+        "lunatic",
+        "zombuul",
+        "pukka",
+        "shabaloth",
+        "po",
+        "assassin",
+        "godfather",
+        "professor",
+        "gossip",
+        "moonchild",
+        "tinker",
+        "chambermaid",
+    ),
+)
+SCRIPTS[BAD_MOON_RISING.id] = BAD_MOON_RISING
+SCRIPT_NAMES = {"trouble_brewing": "Trouble Brewing", "bad_moon_rising": "Bad Moon Rising"}

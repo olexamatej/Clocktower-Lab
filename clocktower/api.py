@@ -15,10 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .archives import MAX_ARCHIVE_BYTES, export_archive, import_archive
 from .config import GameConfig, ModelConfig, demo_config
 from .personas import SECTIONS
 from .providers import CREDENTIALS, HTTPProvider, ProviderError
-from .roles import ROLES
+from .roles import ROLES, SCRIPT_NAMES, SCRIPTS
 from .runner import Runner
 from .storage import Store, project_run
 
@@ -111,9 +112,12 @@ def create_app(root: Path | None = None) -> FastAPI:
 
     @app.get("/api/bootstrap")
     def bootstrap():
+        preferred = store.path("configs", "next-game")
+        initial = GameConfig.model_validate_json(preferred.read_text()) if preferred.exists() else demo_config()
         return {
-            "config": demo_config().model_dump(),
+            "config": initial.model_dump(),
             "roles": [asdict(r) for r in ROLES.values()],
+            "scripts": [{"id": s.id, "name": SCRIPT_NAMES[s.id], "roles": s.roles} for s in SCRIPTS.values()],
             "personas": store.personas.list(),
             "sections": SECTIONS,
             "credentials": {provider: bool(os.getenv(env)) for provider, env in CREDENTIALS.items()},
@@ -154,11 +158,34 @@ def create_app(root: Path | None = None) -> FastAPI:
     async def provider_models(config: ModelConfig):
         if config.provider == "mock":
             return ["demo"]
+        if config.provider == "codex":
+            return [config.model]
         return await HTTPProvider().models(config)
 
     @app.get("/api/runs")
     def runs():
         return store.list("runs")
+
+    @app.post("/api/runs/import")
+    async def import_run(request: Request):
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > MAX_ARCHIVE_BYTES:
+                raise HTTPException(status_code=413, detail="Archive exceeds 50 MiB")
+        import json
+
+        try:
+            data = json.loads(body)
+        except (ValueError, UnicodeDecodeError, RecursionError):
+            raise ValueError("Choose a valid Clocktower run archive JSON file") from None
+        record = import_archive(data)
+        store.write("runs", record["id"], record)
+        return {"id": record["id"], "status": record["status"]}
+
+    @app.get("/api/runs/{key}/export")
+    def export_run(key: str):
+        return export_archive(store.read("runs", key))
 
     @app.post("/api/runs")
     async def start(config: GameConfig):

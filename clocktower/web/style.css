@@ -584,3 +584,82 @@ dialog footer {
   border-radius: 6px;
   padding: 0.8rem 0.3rem;
 }
+
+/* Conversation identity is consistent with the numbered seats and role roster. */
+.scenario { margin-bottom: 1.25rem; border-top: 3px solid var(--accent); }
+.scenario h2 { font: 1.65rem Georgia, serif; margin-top: .45rem; }
+.scenario > p { max-width: 850px; }
+.objectives { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.objectives p { margin: 0; padding: .8rem 1rem; background: #101925; border-radius: 6px; line-height: 1.5; font-size: .85rem; }
+.objectives p:first-child { border-left: 3px solid #95baff; }
+.objectives p:last-child { border-left: 3px solid #d99baf; }
+.viewer-layout > * { min-width: 0; }
+.game-master { margin-bottom: 1rem; border-color: #6f5e3e; background: linear-gradient(115deg, #29251e, #171e2a); }
+.game-master .gm-announcement { line-height: 1.6; white-space: pre-wrap; }
+.message-heading { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.message-heading .avatar, .roster-row .avatar { flex-shrink: 0; margin: 0; }
+.gm-avatar { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #a68a50; border-radius: 12px; color: #e5c789; background: #373025; font: bold .8rem system-ui, sans-serif; }
+.speaker-avatar { color: var(--speaker-color); border-color: var(--speaker-color); }
+.message-identity { flex: 1; min-width: 0; }
+.message-route { line-height: 1.5; font-size: .92rem; }
+.message-route strong { color: var(--speaker-color); }
+.recipient { color: #c1cad8; }
+.message-badge { border: 1px solid #3a4a61; border-radius: 5px; padding: .25rem .45rem; color: #a9bddb; font-size: .65rem; text-transform: uppercase; letter-spacing: .04em; max-width: 115px; text-align: center; }
+.chat-event { margin: 0 0 .9rem; padding: 1rem; border: 1px solid #304057; border-left: 3px solid var(--speaker-color); border-radius: 8px; background: #111a27; }
+.chat-event .message-body { margin: .8rem 0 0; font-size: .94rem; line-height: 1.7; }
+.chat-event .meta { text-transform: none; letter-spacing: 0; display: block; margin: .15rem 0 0; }
+.chat-event.whisper { background: #211d31; border-style: dashed; }
+.whisper .message-badge { color: #d1b7f3; border-color: #665279; }
+.gm-event { background: #24231f; border-color: #534c3a; border-left-color: #d7b56d; }
+.gm-event .message-badge { color: #dac391; border-color: #6f6043; }
+.chat-event details { margin-top: .7rem; }
+#timeline { height: 760px; padding-right: .4rem; overflow-anchor: none; }
+.role-roster { margin-top: 1rem; }
+.roster-row { display: flex; gap: .8rem; padding: .85rem 0; border-top: 1px solid var(--line); }
+.roster-row > div { min-width: 0; }
+.roster-role { display: block; color: var(--muted); margin-top: .25rem; }
+.roster-role.townsfolk, .roster-role.outsider { color: #a6c8ff; }
+.roster-role.minion, .roster-role.demon { color: #e9adc0; }
+.roster-row .help { margin: .35rem 0 0; }
+.role-guide { margin-top: 1rem; }
+.role-guide summary { color: var(--accent); }
+.team-heading { text-transform: capitalize; margin: 1.25rem 0 .65rem; color: #bcc9dc; font-size: .9rem; }
+.guide-role { border-top: 1px solid var(--line); padding: .65rem 0; }
+.guide-role .help { margin: .3rem 0 0; }
+@media(max-width: 650px) {
+  .objectives { grid-template-columns: 1fr; }
+  .message-heading { gap: .5rem; flex-wrap: wrap; }
+  .message-badge { margin-left: 50px; max-width: none; }
+  .chat-event { padding: .8rem; }
+  #timeline { height: 650px; }
+}
+.speaker-avatar, .seat .speaker-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--speaker-color);
+  border-radius: 50%;
+  background: #1b283b;
+  color: var(--speaker-color);
+  font: 1rem Georgia, serif;
+}
+.timeline-panel { align-self: start; width: 100%; }
+@media(max-width: 1100px) {
+  .viewer-layout { display: flex; flex-direction: column; }
+  .viewer-sidebar { display: contents; }
+  .viewer-layout .game-master { order: 0; margin-bottom: 0; }
+  .viewer-layout .timeline-panel { order: 1; }
+  .viewer-layout .seating { order: 2; }
+  .viewer-layout .playback { order: 3; margin-top: 0; }
+  .viewer-layout .role-roster { order: 4; margin-top: 0; }
+  .viewer-layout .role-guide { order: 5; margin-top: 0; }
+  .viewer-layout #usage { order: 6; }
+}
+@media(max-width: 650px) {
+  .chat-event .message-heading { display: grid; grid-template-columns: 40px minmax(0, 1fr); }
+  .chat-event .message-badge { grid-column: 2; justify-self: start; margin-left: 0; }
+}
+.page-heading .actions { flex-wrap: wrap; }
+.roster-role.good { color: #a6c8ff; }
+.roster-role.evil { color: #e9adc0; }

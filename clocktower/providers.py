@@ -6,7 +6,10 @@ import asyncio
 import json
 import os
 import random
+import signal
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 import httpx
@@ -153,6 +156,120 @@ class HTTPProvider:
             out if isinstance(out, int) else token_bound(text),
             estimated,
         )
+
+
+class CodexProvider:
+    """Fresh, tool-free CLI invocations using Codex's own local authentication."""
+
+    async def complete(self, config: ModelConfig, system: str, prompt: dict) -> Completion:
+        options = prompt["decision"]["options"]
+        schema = {
+            "type": "object",
+            "properties": {
+                "option": {"type": "integer", "enum": list(range(len(options)))},
+                "text": {"type": "string"},
+                "notes": {"type": "string"},
+            },
+            "required": ["option", "text", "notes"],
+            "additionalProperties": False,
+        }
+        content = (
+            system + "\nTransport format: return the zero-based index of your chosen legal option in "
+            "'option', your message in 'text' (empty if text is not allowed), and concise private "
+            "notes in 'notes'. This wrapper replaces the raw action JSON format above. "
+            "Use only the supplied game information; do not use tools or inspect files. "
+            "Keep messages under 1000 characters and notes under 2000 characters.\n"
+            + json.dumps(prompt, ensure_ascii=False)
+        )
+        with tempfile.TemporaryDirectory(prefix="clocktower-codex-") as directory:
+            root = Path(directory)
+            schema_file, output_file = root / "schema.json", root / "answer.json"
+            schema_file.write_text(json.dumps(schema))
+            command = [
+                "codex",
+                "exec",
+                "--ignore-user-config",
+                "--ephemeral",
+                "--skip-git-repo-check",
+                "--sandbox",
+                "read-only",
+                "--cd",
+                directory,
+                "--model",
+                config.model,
+                "--json",
+                "--output-schema",
+                str(schema_file),
+                "--output-last-message",
+                str(output_file),
+            ]
+            # No shared thread, repository context, shell, browser, plugins, or external tools.
+            settings = {
+                "approval_policy": "never",
+                "project_doc_max_bytes": 0,
+                "web_search": "disabled",
+                "features.shell_tool": False,
+                "features.unified_exec": False,
+                "features.shell_snapshot": False,
+                "features.multi_agent": False,
+                "features.apps": False,
+                "features.plugins": False,
+                "features.hooks": False,
+                "features.memories": False,
+                "tools.view_image": False,
+                "model_reasoning_effort": config.generation.get("reasoning_effort", "low"),
+            }
+            if config.service_tier != "default":
+                settings["service_tier"] = config.service_tier
+            for key, value in settings.items():
+                command.extend(["-c", f"{key}={json.dumps(value)}"])
+            command.append("-")
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.DEVNULL,
+                    cwd=directory,
+                    start_new_session=True,
+                )
+            except FileNotFoundError:
+                raise ProviderError("Codex CLI not found; install it and run codex login") from None
+            try:
+                stdout, _ = await asyncio.wait_for(
+                    process.communicate(content.encode()), timeout=config.timeout_seconds
+                )
+            except (TimeoutError, asyncio.CancelledError) as exc:
+                if process.returncode is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                await process.wait()
+                if isinstance(exc, TimeoutError):
+                    raise ProviderError("Codex request timed out") from None
+                raise
+            if process.returncode:
+                raise ProviderError("Codex request failed; check codex login status and model access")
+            try:
+                events = [json.loads(line) for line in stdout.decode().splitlines() if line.strip()]
+                answer = json.loads(output_file.read_text())
+                index = answer["option"]
+                if type(index) is not int or not 0 <= index < len(options):
+                    raise ValueError()
+                if not isinstance(answer["text"], str) or not isinstance(answer["notes"], str):
+                    raise TypeError("Text and notes must be strings")
+                action = dict(options[index])
+                if prompt["decision"].get("text"):
+                    action["text"] = answer["text"]
+                action["notes"] = answer["notes"]
+                usage = next(e["usage"] for e in reversed(events) if e["type"] == "turn.completed")
+                inp, out = usage["input_tokens"], usage["output_tokens"]
+                if any(type(v) is not int or v < 0 for v in (inp, out)):
+                    raise ValueError()
+            except (OSError, ValueError, KeyError, TypeError, StopIteration):
+                raise ProviderError("Codex returned an incomplete or malformed structured response") from None
+            return Completion(json.dumps(action), inp, out)
 
 
 class MockProvider:

@@ -28,7 +28,7 @@
       <section id="setup" class="page">
         <div class="page-heading">
           <div>
-            <p class="eyebrow">TROUBLE BREWING · 5–15 PLAYERS</p>
+            <p class="eyebrow">SOCIAL DEDUCTION · 5–15 PLAYERS</p>
             <h1>Assemble the town.</h1>
           </div>
           <div class="actions">
@@ -39,6 +39,7 @@
         <div class="setup-layout">
           <aside class="panel settings">
             <h2>The game</h2>
+            <label>Scenario<select id="script"><option value="trouble_brewing">Trouble Brewing</option><option value="bad_moon_rising">Bad Moon Rising</option></select></label>
             <label>Configuration name<input id="config-name" /></label>
             <div class="two">
               <label>Players<input id="player-count" type="number" min="5" max="15" /></label
@@ -73,6 +74,10 @@
             </details>
             <details>
               <summary>Storyteller policy</summary>
+              <label>Godfather Outsider change<select id="godfather-outsiders"><option value="1">Add one Outsider</option><option value="-1">Remove one Outsider</option></select></label>
+              <label>Pacifist protection<select id="pacifist-save"><option value="random">Seeded choice</option><option value="always">Always save</option><option value="never">Never save</option></select></label>
+              <label>Shabaloth regurgitation<select id="regurgitate"><option value="random">Seeded choice</option><option value="always">Whenever possible</option><option value="never">Never</option></select></label>
+              <label>Tinker deaths<select id="tinker-death"><option value="never">Never</option><option value="random">Seeded night checks</option></select></label>
               <label
                 >Impaired information<select id="misinformation">
                   <option value="random">Seeded random</option>
@@ -109,7 +114,7 @@
                 ><input id="shuffle-roles" type="checkbox" /> Shuffle selected characters</label
               >
               <p class="help">
-                Standard distribution is enforced, including Baron’s two extra Outsiders. With 5–6 players,
+                Standard distribution is enforced, including Baron and Godfather setup changes. With 5–6 players,
                 evil receives no team information or bluffs.
               </p>
             </details>
@@ -147,7 +152,7 @@
             <p class="eyebrow">THE RECORD</p>
             <h1>Every night. Every decision.</h1>
           </div>
-          <button id="refresh-runs">Refresh archive</button>
+          <div class="actions"><label class="button">Import run<input id="import-run" type="file" accept=".json,application/json" hidden /></label><button id="refresh-runs">Refresh archive</button></div>
         </div>
         <div id="run-list" class="library"></div>
       </section>
@@ -161,15 +166,17 @@
             <label
               >Perspective<select id="perspective">
                 <option value="public">Public</option>
-                <option value="omniscient">Omniscient</option>
+                <option value="omniscient">Storyteller · all roles</option>
               </select></label
             ><button id="stop-run" class="danger">Stop game</button
-            ><button id="download-run">Export visible events</button>
+            ><button id="export-full-run" title="Includes all roles, private messages, and personas">Export full game</button><button id="download-run">Export visible events</button>
           </div>
         </div>
+        <div id="scenario" class="panel scenario"></div>
         <div id="result-banner" class="result" hidden></div>
         <div class="viewer-layout">
-          <div>
+          <div class="viewer-sidebar">
+            <section id="game-master" class="panel game-master" aria-label="Game Master"></section>
             <div id="seating" class="seating panel"></div>
             <div class="panel playback">
               <div class="actions">
@@ -184,15 +191,19 @@
               <input id="scrubber" type="range" min="0" value="0" aria-label="Event position" />
               <div class="section-heading"><span id="position"></span><span id="phase-label"></span></div>
             </div>
+            <section id="role-roster" class="panel role-roster" aria-label="Player roles"></section>
+            <details class="panel role-guide"><summary id="role-guide-title">Character guide</summary><div id="role-guide"></div></details>
             <div id="usage" class="panel" hidden></div>
           </div>
           <div class="panel timeline-panel">
             <div class="section-heading">
-              <h2>Timeline</h2>
+              <h2>Town conversation</h2>
               <label
                 >Filter<select id="event-filter">
-                  <option value="all">All events</option>
+                  <option value="all">Conversation</option>
+                  <option value="audit">Detailed log</option>
                   <option value="message">Conversations</option>
+                  <option value="gm">Game Master</option>
                   <option value="nomination">Nominations</option>
                   <option value="vote">Votes</option>
                   <option value="death">Deaths</option>
@@ -201,7 +212,8 @@
                 </select></label
               >
             </div>
-            <div id="timeline"></div>
+            <p class="help">Speaker → recipient · Whispers are private. Gold announcements come from the Game Master.</p>
+            <div id="timeline" role="log" aria-label="Game conversation"></div>
           </div>
         </div>
       </section>

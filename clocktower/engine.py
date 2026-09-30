@@ -28,9 +28,12 @@ class Player:
     dead_vote: bool = True
     used: set[str] = field(default_factory=set)
     master: str | None = None
+    changed_alignment: str | None = None
 
     @property
     def alignment(self) -> str:
+        if self.changed_alignment:
+            return self.changed_alignment
         return "evil" if ROLES[self.role].team in ("minion", "demon") else "good"
 
 
@@ -84,12 +87,15 @@ class Engine:
         for p in self.players:
             if p.role == "drunk":
                 p.shown_role = self.rng.choice([r for r in TOWNSFOLK if r not in roles])
+        self._prepare_players()
         self.red_herring = self.rng.choice([p.id for p in self.players if p.alignment == "good"])
         self.bluffs = self.rng.sample(
             [
                 r
-                for r in TOWNSFOLK + OUTSIDERS
-                if r not in roles and r not in [p.shown_role for p in self.players]
+                for r in SCRIPTS[self.config.script].roles
+                if ROLES[r].team in ("townsfolk", "outsider")
+                and r not in roles
+                and r not in [p.shown_role for p in self.players]
             ],
             3,
         )
@@ -103,17 +109,42 @@ class Engine:
         )
         self.emit("grimoire", self.grimoire(), [])
         for p in self.players:
-            self.emit("role", {"player": p.id, "role": p.shown_role, "alignment": p.alignment}, [p.id])
+            self.emit(
+                "role", {"player": p.id, "role": p.shown_role, "alignment": self.shown_alignment(p)}, [p.id]
+            )
         self.pending: Decision | None = None
         self._flow = self._game()
 
+    def shown_alignment(self, p: Player) -> str:
+        return p.alignment
+
+    def _prepare_players(self):
+        pass
+
     def _draw_roles(self) -> list[str]:
         towns, outsiders, minions, _ = COUNTS[len(self.config.players)]
-        selected = self.rng.sample(MINIONS, minions)
+        pool = SCRIPTS[self.config.script].roles
+        teams = {
+            team: [r for r in pool if ROLES[r].team == team]
+            for team in ("townsfolk", "outsider", "minion", "demon")
+        }
+        selected = self.rng.sample(teams["minion"], minions)
         if "baron" in selected:
             towns -= 2
             outsiders += 2
-        return self.rng.sample(TOWNSFOLK, towns) + self.rng.sample(OUTSIDERS, outsiders) + selected + ["imp"]
+        if "godfather" in selected:
+            delta = self.config.policy.godfather_outsiders
+            if outsiders + delta < 0:
+                raise ValueError("Godfather cannot remove an Outsider from a zero-Outsider setup")
+            towns -= delta
+            outsiders += delta
+        demons = teams["demon"]
+        return (
+            self.rng.sample(teams["townsfolk"], towns)
+            + self.rng.sample(teams["outsider"], outsiders)
+            + selected
+            + [demons[0] if len(demons) == 1 else self.rng.choice(demons)]
+        )
 
     def emit(self, kind: str, data: Any, audience: list[str] | None = None):
         self.events.append(
@@ -199,7 +230,7 @@ class Engine:
     def _character_info(self, p: Player, target: Player):
         value = self.registered_role(target)
         if self.impaired(p) and self.config.policy.misinformation == "random":
-            value = self.choice("impaired character information", list(ROLES))
+            value = self.choice("impaired character information", list(SCRIPTS[self.config.script].roles))
         self.info(p, {"target": target.id, "role": value})
 
     def _starting_info(self, p: Player):
@@ -210,7 +241,13 @@ class Engine:
         candidates = other_candidates or candidates
         impaired = self.impaired(p) and self.config.policy.misinformation == "random"
         if impaired:
-            candidates = [(q, r) for q in self.players if q != p for r in ROLES if ROLES[r].team == team]
+            candidates = [
+                (q, r)
+                for q in self.players
+                if q != p
+                for r in SCRIPTS[self.config.script].roles
+                if ROLES[r].team == team
+            ]
         if not candidates:
             # A healthy Librarian can receive zero; the other roles always have a valid match.
             self.info(p, {"count": 0})
@@ -459,7 +496,7 @@ class Engine:
         # Players raise hands together; obtain master's intention before the Butler.
         order.sort(key=lambda q: q.role == "butler" and q.alive)
         for p in order:
-            if not p.alive and not p.dead_vote:
+            if not self.socially_alive(p) and not p.dead_vote:
                 votes[p.id] = False
                 continue
             allowed = p.role != "butler" or not p.alive or bool(votes.get(p.master or "", False))
@@ -469,14 +506,14 @@ class Engine:
             vote = yield Decision(
                 p.id,
                 "vote",
-                f"Vote on executing {target.name}. Living threshold: {(len(self.living()) + 1) // 2}. Dead votes can be used once.",
+                f"Vote on executing {target.name}. Living threshold: {(sum(self.socially_alive(q) for q in self.players) + 1) // 2}. Dead votes can be used once.",
                 options,
             )
             votes[p.id] = vote["yes"]
-            if vote["yes"] and not p.alive:
+            if vote["yes"] and not self.socially_alive(p):
                 p.dead_vote = False
         tally = sum(votes.values())
-        threshold = (len(self.living()) + 1) // 2
+        threshold = (sum(self.socially_alive(q) for q in self.players) + 1) // 2
         if tally >= threshold and tally > self.high_votes:
             self.block, self.high_votes = target.id, tally
         elif tally >= threshold and tally == self.high_votes:
@@ -494,6 +531,15 @@ class Engine:
         )
         return False
 
+    def _extra_day_options(self, p: Player) -> list[dict]:
+        return []
+
+    def _extra_day_action(self, p: Player, action: dict):
+        pass
+
+    def socially_alive(self, p: Player) -> bool:
+        return p.alive
+
     def _day(self) -> Generator[Decision, dict, None]:
         self.executed = None
         self.block, self.high_votes = None, 0
@@ -504,12 +550,17 @@ class Engine:
                 options = [{"type": "pass"}] + ([{"type": "speak"}] if talking else [])
                 if talking and self.config.conversations.whispers:
                     options += [{"type": "whisper", "target": q.id} for q in self.players if q != p]
-                if p.alive and "slayer" not in p.used:
+                if self.config.script == "trouble_brewing" and p.alive and "slayer" not in p.used:
                     options += [{"type": "slayer", "target": q.id} for q in self.players]
+                options.extend(self._extra_day_options(p))
                 action = yield Decision(
                     p.id,
                     "conversation" if talking else "day_ability",
-                    "Speak, whisper, claim a Slayer shot, or pass."
+                    (
+                        "Speak, whisper, publicly gossip, or pass."
+                        if self.config.script == "bad_moon_rising"
+                        else "Speak, whisper, claim a Slayer shot, or pass."
+                    )
                     if talking
                     else "Claim a Slayer shot or pass.",
                     options,
@@ -523,6 +574,8 @@ class Engine:
                         {"player": p.id, "target": action.get("target"), "text": action.get("text", "")},
                         audience,
                     )
+                elif kind not in ("pass", "slayer"):
+                    self._extra_day_action(p, action)
                 elif kind == "slayer":
                     p.used.add("slayer")
                     target = self.by_id[action["target"]]
@@ -540,7 +593,7 @@ class Engine:
         while not self.result:
             progress = False
             for p in self.players:
-                if not p.alive or p.id in self.nominators:
+                if not self.socially_alive(p) or p.id in self.nominators:
                     continue
                 options = [{"type": "pass"}] + [
                     {"type": "nominate", "target": q.id} for q in self.players if q.id not in self.nominated

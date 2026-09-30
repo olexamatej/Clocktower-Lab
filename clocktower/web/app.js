@@ -9,6 +9,7 @@ let config,
   configId = null,
   catalog = [],
   roles = [],
+  scripts = [],
   sections = [],
   selectedRun = null,
   runData = null,
@@ -98,6 +99,7 @@ function download(filename, value, type = "application/json") {
 }
 const providerOptions = [
   ["mock", "Demo / offline"],
+  ["codex", "Codex CLI / ChatGPT login"],
   ["openai", "OpenAI"],
   ["anthropic", "Anthropic"],
   ["einfra", "e-INFRA"],
@@ -105,6 +107,7 @@ const providerOptions = [
 ];
 const modelPlaceholders = {
   mock: "demo",
+  codex: "gpt-6-astra",
   openai: "gpt-4.1-mini",
   anthropic: "claude-sonnet-4-5",
   einfra: "mini",
@@ -122,30 +125,45 @@ function modelEditor(parent, model, inherited = {}) {
     model.provider = value;
     model.model = modelPlaceholders[value];
     model.generation = Object.fromEntries(Object.keys(inherited.generation || {}).map((k) => [k, null]));
-    delete model.base_url;
+    model.service_tier = "default";
+    model.base_url = null;
+    model.credential_env = null;
+    if (value === "codex") {
+      model.service_tier = "ultrafast";
+      model.timeout_seconds = 180;
+      model.context_tokens = 64000;
+      model.max_output_tokens = 4096;
+      model.retries = 0;
+    }
     parent.replaceChildren();
     modelEditor(parent, model, inherited);
   });
   const modelInput = field(parent, "Model", effective().model, (v) => (model.model = v));
   modelInput.required = true;
+  if (effective().provider === "codex") choice(parent, "Service tier", effective().service_tier || "default", [["default", "Provider default"], ["fast", "Fast"], ["ultrafast", "Ultrafast · Astra"]], (v) => model.service_tier = v);
   const advanced = el("details"),
     summary = el("summary", "Endpoint, generation & memory");
   advanced.append(summary);
   parent.append(advanced);
-  field(advanced, "Endpoint base URL (optional)", effective().base_url, (v) => (model.base_url = v || null));
-  field(
-    advanced,
-    "Credential environment variable",
-    effective().credential_env,
-    (v) => (model.credential_env = v || null),
-  );
+  const isCodex = effective().provider === "codex";
+  if (isCodex) {
+    advanced.append(el("p", "Uses your local Codex login. Output tokens are a budget reservation, not a hard generation limit. Codex manages connection retries."));
+  } else {
+    field(advanced, "Endpoint base URL (optional)", effective().base_url, (v) => (model.base_url = v || null));
+    field(
+      advanced,
+      "Credential environment variable",
+      effective().credential_env,
+      (v) => (model.credential_env = v || null),
+    );
+  }
   const two = el("div", undefined, "two");
   advanced.append(two);
   for (const [key, label, fallback] of [
-    ["max_output_tokens", "Output token limit", 512],
+    ["max_output_tokens", isCodex ? "Output token reservation" : "Output token limit", 512],
     ["context_tokens", "Context token limit", 16000],
     ["timeout_seconds", "Timeout (seconds)", 60],
-    ["retries", "Network retries", 2],
+    ...(!isCodex ? [["retries", "Network retries", 2]] : []),
   ])
     field(two, label, effective()[key] ?? fallback, (v) => (model[key] = v), "number");
   choice(
@@ -289,7 +307,7 @@ function renderPlayers() {
         body,
         "Character",
         config.roles[index] || "",
-        [["", "Choose character"], ...roles.map((r) => [r.id, r.name + " · " + r.team])],
+        [["", "Choose character"], ...roles.filter((r) => scripts.find((s) => s.id === config.script)?.roles.includes(r.id)).map((r) => [r.id, r.name + " · " + r.team])],
         (v) => (config.roles[index] = v),
       );
     card.append(body);
@@ -297,6 +315,11 @@ function renderPlayers() {
   });
 }
 const bindings = {
+  script: ["script"],
+  "godfather-outsiders": ["policy", "godfather_outsiders"],
+  "pacifist-save": ["policy", "pacifist_save"],
+  regurgitate: ["policy", "shabaloth_regurgitate"],
+  "tinker-death": ["policy", "tinker_death"],
   "config-name": ["name"],
   seed: ["seed"],
   rounds: ["conversations", "rounds"],
@@ -479,7 +502,7 @@ async function updateRun(initial = false) {
   if (id !== selectedRun || view !== $("perspective").value) return;
   runData = data;
   if (initial) {
-    $("perspective").replaceChildren(option("public", "Public"), option("omniscient", "Omniscient"));
+    $("perspective").replaceChildren(option("public", "Public"), option("omniscient", "Storyteller · all roles"));
     data.players.forEach((p) => $("perspective").append(option(p.id, p.name)));
   }
   if (follow) cursor = data.events.length;
@@ -510,13 +533,20 @@ function eventText(event) {
           .join(" · ")
       );
     case "dawn":
-      return d.deaths.length
-        ? `Dawn: ${d.deaths.map(name).join(", ")} died in the night.`
-        : "Dawn: nobody died.";
+      return (d.deaths.length ? `Dawn: ${d.deaths.map(name).join(", ")} died in the night.` : "Dawn: nobody died.") + (d.resurrected?.length ? ` Returned to life: ${d.resurrected.map(name).join(", ")}.` : "");
+    case "resurrection": return `${name(d.player)} returns to life.`;
+    case "survived": return `${name(d.player)} survives execution.`;
+    case "alignment": return `${name(d.player)} is now ${d.alignment}.`;
+    case "gossip": return `${name(d.player)} publicly gossips: ${d.text}`;
+    case "moonchild": return `${name(d.player)} chooses ${name(d.target)} as the Moonchild.`;
     case "death":
       return `${name(d.player)} died (${d.cause}).`;
     case "execution":
       return `${name(d.player)} is executed.`;
+    case "information":
+      return `${roleName(d.ability)} information: ${formatValue(d.value)}`;
+    case "transformation":
+      return `${name(d.player)} becomes ${roleName(d.role)}.`;
     case "role":
       return `${name(d.player)}: ${d.role.replaceAll("_", " ")} · ${d.alignment}`;
     case "slayer":
@@ -527,6 +557,107 @@ function eventText(event) {
       return `${d.winner ? d.winner.toUpperCase() + " wins." : "Interrupted."} ${d.reason}`;
     default:
       return JSON.stringify(d, null, 2);
+  }
+}
+function playerName(id) {
+  return runData.players.find((p) => p.id === id)?.name || id || "Town";
+}
+function roleName(id) {
+  return roles.find((r) => r.id === id)?.name || id?.replaceAll("_", " ") || "Hidden role";
+}
+function formatValue(value) {
+  if (Array.isArray(value)) return value.map(formatValue).join(", ");
+  if (value && typeof value === "object") return Object.entries(value).map(([k, v]) => `${k.replaceAll("_", " ")}: ${formatValue(v)}`).join(" · ");
+  return runData.players.some((p) => p.id === value) ? playerName(value) : String(value);
+}
+const playerColors = ["#9dbfff", "#e5a4d0", "#8dd4bf", "#eab783", "#bcb0ff", "#a6ce8b", "#85cddd", "#f1a69e", "#d5c278", "#b6bfda", "#c4a0c8", "#c2d8b0", "#9ec7ce", "#e2bbb5", "#b6b1e2"];
+function playerColor(id) {
+  return playerColors[Math.max(0, runData.players.findIndex((p) => p.id === id)) % playerColors.length];
+}
+function playerAvatar(id, label) {
+  const seat = runData.players.findIndex((p) => p.id === id) + 1;
+  const avatar = el("span", label || String(seat), "avatar speaker-avatar");
+  avatar.style.setProperty("--speaker-color", playerColor(id));
+  avatar.setAttribute("aria-label", `Seat ${seat}: ${playerName(id)}`);
+  return avatar;
+}
+function renderEvent(e) {
+  const d = e.data, message = e.kind === "message";
+  const actor = message ? d.player : e.kind === "nomination" ? d.nominator : ["slayer", "gossip", "moonchild"].includes(e.kind) ? d.player : null;
+  const privateNotice = ["information", "role", "transformation", "alignment"].includes(e.kind);
+  const recipient = message ? (d.target ? playerName(d.target) : "Everyone") : privateNotice ? playerName(d.player) : ["action", "usage", "recovery", "fallback", "grimoire"].includes(e.kind) ? "Private record" : "Everyone";
+  const article = el("article", undefined, `event chat-event ${e.kind} ${actor ? "player-event" : "gm-event"}${message && d.target ? " whisper" : ""}`);
+  article.dataset.event = e.seq;
+  article.dataset.speaker = actor || "game-master";
+  article.dataset.recipient = message ? d.target || "everyone" : privateNotice ? d.player : "everyone";
+  article.style.setProperty("--speaker-color", actor ? playerColor(actor) : "#d7b56d");
+  const head = el("div", undefined, "message-heading");
+  head.append(actor ? playerAvatar(actor) : el("span", "GM", "avatar gm-avatar"));
+  const identity = el("div", undefined, "message-identity");
+  const route = el("div", undefined, "message-route");
+  route.append(el("strong", actor ? playerName(actor) : "Game Master"), el("span", ` → ${recipient}`, "recipient"));
+  identity.append(route, el("small", `${e.phase === "setup" ? "Setup" : `${e.phase === "night" ? "Night" : "Day"} ${e.day}`} · #${e.seq}`, "meta"));
+  head.append(identity, el("span", message ? (d.target ? "Private whisper" : "Public speech") : privateNotice ? "Private information" : e.kind.replaceAll("_", " "), "message-badge"));
+  article.append(head);
+  if (["action", "usage", "grimoire", "recovery", "fallback"].includes(e.kind)) {
+    const detail = el("details");
+    detail.append(el("summary", `Inspect ${e.kind}`), el("pre", eventText(e)));
+    article.append(detail);
+  } else article.append(el("p", message ? d.text : eventText(e), "message-body"));
+  return article;
+}
+function renderGameContext(events, state) {
+  const script = runData.script || "trouble_brewing";
+  const scriptInfo = scripts.find((s) => s.id === script);
+  const bmr = script === "bad_moon_rising";
+  const scenario = $("scenario");
+  if (scenario.dataset.script !== script) {
+    scenario.dataset.script = script;
+    scenario.replaceChildren();
+    scenario.append(el("p", "THE SCENARIO", "eyebrow"), el("h2", scriptInfo?.name || script), el("p", bmr ? "Deaths can deceive. Test claims against unexpected survival, multiple night deaths, and resurrection. Find which Demon is haunting the town." : "A Demon hides among the townsfolk. Discuss your information, question claims, nominate suspects, and vote before night falls.", "muted"));
+    const objectives = el("div", undefined, "objectives");
+    objectives.append(el("p", bmr ? "GOOD · Eliminate the Demon. Beware the Zombuul’s apparent death and the Mastermind’s extra day." : "GOOD · Eliminate the Demon. A healthy Mayor can also win with three alive and no execution."), el("p", bmr ? "EVIL · Reach two actually living players. On the Mastermind’s extra day, an executed player’s team loses." : "EVIL · Survive until only two players live, or have a healthy Saint executed."));
+    scenario.append(objectives);
+  }
+  const gm = $("game-master");
+  const announcement = events.findLast((e) => ["setup", "phase", "dawn", "nomination", "vote", "execution", "no_execution", "result"].includes(e.kind));
+  const heading = el("div", undefined, "message-heading");
+  const identity = el("div");
+  identity.append(el("h2", "Game Master / Storyteller"), el("small", "Automated rules & announcements", "muted"));
+  heading.append(el("span", "GM", "avatar gm-avatar"), identity);
+  gm.replaceChildren(heading, el("p", announcement ? eventText(announcement) : "The town is taking its seats.", "gm-announcement"));
+  gm.append(el("small", "Runs night abilities, delivers private information, counts votes, and checks victory.", "muted"));
+  const roster = $("role-roster"), view = $("perspective").value;
+  roster.replaceChildren(el("h2", view === "omniscient" ? "The grimoire · assigned roles" : "Players & visible roles"));
+  roster.append(el("p", view === "omniscient" ? "Storyteller view reveals actual roles at this point in the replay." : "Other players’ roles are hidden. Claims in conversation may be bluffs. Switch to Storyteller view to inspect all roles.", "help"));
+  if (view !== "omniscient") roster.append(btn("Reveal all roles · Storyteller view", async () => {
+    stopPlayback();
+    $("perspective").value = "omniscient";
+    follow = true;
+    await updateRun();
+  }));
+  Object.values(state).forEach((p) => {
+    const role = roles.find((r) => r.id === p.role), row = el("div", undefined, "roster-row");
+    const body = el("div");
+    body.append(el("strong", p.name), el("small", `${role ? `${role.name} · ${role.team}${p.alignment ? ` · ${p.alignment}` : ""}` : "Hidden role"} · ${p.alive ? "Alive" : p.actually_alive && view === "omniscient" ? "Registers dead; actually alive" : "Dead"}`, `roster-role ${p.alignment || role?.team || ""}`));
+    if (role) body.append(el("p", role.ability, "help"));
+    row.append(playerAvatar(p.id), body);
+    roster.append(row);
+  });
+  const guide = $("role-guide");
+  if (guide.dataset.script !== script) {
+    guide.dataset.script = script;
+    guide.replaceChildren();
+    $("role-guide-title").textContent = `${scriptInfo?.name || script} · character guide`;
+    guide.append(el("p", "All possible characters in this script; this list does not reveal which are in play.", "help"));
+    for (const team of ["townsfolk", "outsider", "minion", "demon"]) {
+      guide.append(el("h3", team === "townsfolk" || team === "outsider" ? `${team} · Good` : `${team} · Evil`, "team-heading"));
+      roles.filter((r) => r.team === team && scriptInfo?.roles.includes(r.id)).forEach((r) => {
+        const card = el("div", undefined, "guide-role");
+        card.append(el("strong", r.name), el("p", r.ability, "help"));
+        guide.append(card);
+      });
+    }
   }
 }
 function renderRun() {
@@ -554,7 +685,23 @@ function renderRun() {
       v.deaths.forEach((id) => {
         if (state[id]) state[id].alive = false;
       });
-    if ((e.kind === "role" || e.kind === "transformation") && state[v.player]) state[v.player].role = v.role;
+    if (e.kind === "resurrection" && state[v.player]) {
+      state[v.player].alive = true;
+      state[v.player].actually_alive = true;
+      state[v.player].dead_vote = true;
+    }
+    if (e.kind === "dawn") (v.resurrected || []).forEach((id) => {
+      if (state[id]) { state[id].alive = true; state[id].dead_vote = true; }
+    });
+    if (e.kind === "alignment" && state[v.player]) state[v.player].alignment = v.alignment;
+    if (e.kind === "transformation" && state[v.player]) state[v.player].role = v.role;
+    if (e.kind === "role" && state[v.player]) {
+      // The Drunk's private role notice is not their actual Storyteller identity.
+      if ($("perspective").value !== "omniscient" || !state[v.player].role) {
+        state[v.player].role = v.role;
+        state[v.player].alignment = v.alignment;
+      }
+    }
     if (e.kind === "grimoire") v.players.forEach((p) => Object.assign(state[p.id], p));
     if (e.kind === "vote")
       Object.entries(v.votes).forEach(([id, yes]) => {
@@ -572,7 +719,7 @@ function renderRun() {
     seat.style.left = `${50 + 38 * Math.cos(angle)}%`;
     seat.style.top = `${50 + 39 * Math.sin(angle)}%`;
     seat.append(
-      el("div", p.alive ? String(i + 1) : "†", "avatar"),
+      playerAvatar(p.id, p.alive ? String(i + 1) : "†"),
       el("strong", p.name),
       el("small", `${p.provider} · ${p.model}`),
     );
@@ -580,19 +727,24 @@ function renderRun() {
     if (!p.alive) seat.append(el("small", p.dead_vote ? "Dead vote available" : "Dead vote spent"));
     $("seating").append(seat);
   });
+  renderGameContext(events, state);
   const filter = $("event-filter").value;
-  $("timeline").replaceChildren();
+  const timeline = $("timeline");
+  const expanded = new Set([...timeline.querySelectorAll(".event:has(details[open])")].map((node) => node.dataset.event));
+  const oldScroll = timeline.scrollTop;
+  const atBottom = timeline.scrollHeight - timeline.clientHeight - oldScroll < 60;
+  timeline.replaceChildren();
+  const technical = ["action", "usage", "grimoire", "recovery", "fallback"];
   events
-    .filter((e) => filter === "all" || e.kind === filter || (filter === "death" && e.kind === "dawn"))
+    .filter((e) => filter === "audit" || (filter === "gm" && !["message", "nomination", "slayer", "gossip", "moonchild", ...technical].includes(e.kind)) || (filter === "all" && !technical.includes(e.kind)) || e.kind === filter || (filter === "death" && e.kind === "dawn"))
     .forEach((e) => {
-      const article = el("article", undefined, "event " + e.kind);
-      article.append(
-        el("div", `${e.seq} · ${e.phase} ${e.day} · ${e.kind.replaceAll("_", " ")}`, "meta"),
-        el(["grimoire", "action", "information", "usage"].includes(e.kind) ? "pre" : "p", eventText(e)),
-      );
-      $("timeline").append(article);
+      const article = renderEvent(e);
+      if (expanded.has(article.dataset.event) && article.querySelector("details")) article.querySelector("details").open = true;
+      timeline.append(article);
     });
-  if (follow || playback) $("timeline").scrollTop = $("timeline").scrollHeight;
+  if (!timeline.childElementCount) timeline.append(el("p", "No events in this view yet.", "muted"));
+  timeline.scrollTop = oldScroll;
+  if ((follow && atBottom) || playback) $("timeline").scrollTop = $("timeline").scrollHeight;
   $("usage").hidden = !d.usage;
   if (d.usage) {
     $("usage").replaceChildren(el("h2", "Usage"));
@@ -628,8 +780,12 @@ for (const [id, path] of Object.entries(bindings))
   $(id).addEventListener("change", () => {
     const n = $(id),
       parent = path.slice(0, -1).reduce((o, k) => o[k], config);
-    parent[path.at(-1)] = n.type === "checkbox" ? n.checked : n.type === "number" ? Number(n.value) : n.value;
+    parent[path.at(-1)] = n.type === "checkbox" ? n.checked : (n.type === "number" || id === "godfather-outsiders") ? Number(n.value) : n.value;
   });
+$("script").addEventListener("change", () => {
+  if (config.roles) config.roles = config.players.map(() => "");
+  renderPlayers();
+});
 $("defaults-editor").addEventListener("change", renderPlayers);
 $("player-count").onchange = () => {
   const count = Math.max(5, Math.min(15, Number($("player-count").value) || 7));
@@ -706,6 +862,21 @@ $("stop-run").onclick = task(async () => {
   await api(`runs/${selectedRun}/stop`, {});
   await updateRun();
 });
+$("export-full-run").onclick = task(async () => {
+  download(`clocktower-run-${selectedRun}.json`, await api(`runs/${selectedRun}/export`));
+  notice("Full game exported, including hidden roles and private messages.");
+});
+$("import-run").onchange = task(async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 50 * 1024 * 1024) throw new Error("Archive exceeds 50 MiB.");
+    const imported = await api("runs/import", JSON.parse(await file.text()));
+    await refreshRuns();
+    await openRun(imported.id);
+    notice("Game imported as a new replay. No model calls were started.");
+  } finally { event.target.value = ""; }
+});
 $("download-run").onclick = () =>
   download(`clocktower-${selectedRun}-${$("perspective").value}.json`, runData);
 $("scrubber").oninput = () => {
@@ -756,6 +927,7 @@ try {
   config = data.config;
   catalog = data.personas;
   roles = data.roles;
+  scripts = data.scripts;
   sections = data.sections;
   renderConfig();
   renderLibrary();

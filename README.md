@@ -50,6 +50,22 @@ clocktower --data /path/to/lab-data run my-game.json
 
 `CLOCKTOWER_DATA` supplies the default data directory; otherwise it is `data/` relative to the working directory. Keep the same directory between sessions. It contains JSON configurations, independent `.md` personas and run records. Exported configurations reference persona paths relative to `data/personas/`; copy the associated files when moving a configuration to another machine. Built-in references are portable without copying.
 
+## Play with Codex
+
+Install the Codex CLI and run `codex login` once. Select **Codex CLI / ChatGPT login** in the browser, or run:
+
+```bash
+clocktower run examples/codex.json
+```
+
+The example uses `gpt-6-astra`, the `ultrafast` service tier, seven players, and low reasoning effort. Set the model to one available to your Codex account. Requests use your existing Codex login and its usage limits; no OpenAI API key is needed for a ChatGPT login.
+
+Each decision runs a fresh `codex exec` session in a temporary directory with user config, project instructions, shell, web search, plugins, and other integrations disabled. Only that player's filtered observation and persona are supplied. Structured output selects one legal option; the engine still validates the resulting action. Stopping a game cancels the active CLI process. Requires a recent CLI supporting `--ignore-user-config`, `--ephemeral`, and `--output-schema`.
+
+Codex supports `reasoning_effort` and explicit provider-default/Fast/Ultrafast service tiers here; HTTP endpoint and credential settings do not apply. CLI failures interrupt the game rather than silently replacing players with mocks. `timeout_seconds` bounds each call; CLI transport retries are managed by Codex itself, not the HTTP retry field. Codex reports input/output usage, but this integration cannot enforce the HTTP `max_output_tokens` generation cap: that field is used for context/budget reservation only. The total token limit is checked between decisions and can be exceeded by the last call. Pricing is unavailable unless supplied explicitly.
+
+See the official [non-interactive Codex documentation](https://learn.chatgpt.com/docs/non-interactive-mode).
+
 ## Credentials and providers
 
 Set credentials in the **backend process environment**, then start the web app or CLI:
@@ -91,9 +107,32 @@ clocktower persona validate data/personas/custom/FILE.md
 
 Custom files persist across restarts. To add one manually, write it under `data/personas/` and refer to its relative `.md` path. Persona text affects style and strategy, never actual role, alignment or legal permissions. Each run snapshots the text it used, so later editing does not change replay history.
 
+## Portable games
+
+Choose **Export full game** in a replay to download a versioned JSON archive containing the configuration, all role assignments, private/public events, persona snapshots, and usage. **Export visible events** remains a view-only export and is not an importable full archive. Full archives include spoilers and private conversations.
+
+Use **Import run** in Run archive to add an archive as a new replay. Imports never overwrite another run, restore arbitrary files, or start model calls. In-progress snapshots are imported as interrupted replays, not resumable live processes. The maximum archive size is 50 MiB.
+
+```sh
+clocktower export-run RUN_ID game.json
+clocktower import-run game.json
+```
+
+## Bad Moon Rising
+
+Choose **Bad Moon Rising** in the Scenario selector, or use `examples/bad-moon-rising.json` for seven Codex/Astra ultrafast players. The role guide, player prompts, setup counts, and night order follow the selected script. All 25 BMR characters have engine rules, including the four Demons, resurrection, drunkenness, protection, and the Mastermind's extra day. See [BMR simulation policy](docs/BAD_MOON_RISING.md).
+
+The local `configs/next-game.json` saved configuration, when present, is loaded on the setup screen at startup. It prepares a game; it does not start one automatically.
+
+## Watching a game
+
+The viewer shows the Trouble Brewing scenario, both teams' victory conditions, and a Game Master / Storyteller panel. The Game Master is the automated rules engine: it handles night abilities, private information, voting, and victory announcements.
+
+Conversation cards show a numbered speaker, a named recipient (or **Everyone**), and a public-speech or private-whisper label. Gold cards are Game Master announcements. Use **Detailed log** to inspect technical records. The role roster follows the replay position and selected perspective; **Reveal all roles · Storyteller view** exposes the actual assignments. Public and player views keep other roles hidden. The expandable character guide lists every possible Trouble Brewing role, not the current game's assignments.
+
 ## Rules and simulation policy
 
-[Rules and storyteller policy](docs/RULES.md) describes supported Trouble Brewing mechanics and the distinction between official rules and simulation pacing. Standard 5–15-player counts are supported, including the special 5–6-player setup-information rules. Travellers, Fabled, other scripts and human-controlled seats are not currently implemented.
+[Rules and storyteller policy](docs/RULES.md) describes supported Trouble Brewing mechanics and the distinction between official rules and simulation pacing. Standard 5–15-player counts are supported, including the special 5–6-player setup-information rules. Travellers, Fabled, scripts other than Trouble Brewing and Bad Moon Rising, and human-controlled seats are not currently implemented.
 
 The seed reproduces setup, mock decisions and storyteller choices **given the same action sequence**. Real model generation is nondeterministic, even where a generation seed is accepted. Replays render recorded events; they never call the model again.
 

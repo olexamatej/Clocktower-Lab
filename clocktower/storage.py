@@ -81,6 +81,7 @@ def project_run(run: dict, viewer: str) -> dict:
     ]
     result = {k: run.get(k) for k in ("id", "created", "status", "result", "version")}
     result["name"] = run["config"]["name"]
+    result["script"] = run["config"].get("script", "trouble_brewing")
     result["players"] = [
         {
             "id": p["id"],

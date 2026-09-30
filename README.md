@@ -113,7 +113,11 @@ Choose **Export full game** in a replay to download a versioned JSON archive con
 
 Use **Import run** in Run archive to add an archive as a new replay. Imports never overwrite another run, restore arbitrary files, or start model calls. In-progress snapshots are imported as interrupted replays, not resumable live processes. The maximum archive size is 50 MiB.
 
-A [recorded seven-player Codex game](examples/runs/README.md) is included as a reference: Trouble Brewing with `gpt-6.1-sol`, ending in a good-team victory. Import its full archive to review the actual conversations and decisions.
+Two [completed reference games](examples/runs/README.md) are included: seven-player Trouble Brewing with `gpt-6.1-sol`, and ten-player Bad Moon Rising with `gpt-6-astra` ultrafast. Both ended in good-team victories. Import their full archives to review the actual conversations and decisions.
+
+Local interrupted games can be continued with `clocktower resume RUN_ID`. The runner reconstructs the state from recorded decisions, verifies the complete event history against the current rules, and restores private notes and cumulative usage before making new model calls. It retains the run ID and saves the interrupted record under `data/resume-backups/`. Imported archives remain replay-only. A rules/history mismatch prevents resuming.
+
+Use `clocktower resume RUN_ID --max-tokens 0` to remove the token cap, or supply a larger total budget including tokens already consumed. A token budget of `0` also means unlimited in game setup. Other game limits still apply; the runtime allowance starts again for the resumed process.
 
 ```sh
 clocktower export-run RUN_ID game.json
@@ -128,9 +132,13 @@ The local `configs/next-game.json` saved configuration, when present, is loaded 
 
 ## Watching a game
 
-The viewer shows the Trouble Brewing scenario, both teams' victory conditions, and a Game Master / Storyteller panel. The Game Master is the automated rules engine: it handles night abilities, private information, voting, and victory announcements.
+Each player has a separate information context. For every decision, the Codex provider starts a fresh request containing that player's persona, the script rules, their role and private information, public history, whispers they participated in, their own saved notes, and the available legal actions. Other players' private information and notes are excluded. Players act sequentially when the rules engine requests a decision; they are not continuously running Codex chats.
 
-Conversation cards show a numbered speaker, a named recipient (or **Everyone**), and a public-speech or private-whisper label. Gold cards are Game Master announcements. Use **Detailed log** to inspect technical records. The role roster follows the replay position and selected perspective; **Reveal all roles · Storyteller view** exposes the actual assignments. Public and player views keep other roles hidden. The expandable character guide lists every possible Trouble Brewing role, not the current game's assignments.
+The Python rules engine acts as Game Master: it owns the full state, resolves abilities, and determines what each player learns. A player's response chooses an action and may replace their saved notes for the next request. With recent-history memory, older events are trimmed when the configured context budget is exceeded, while identity and initial role/team information are retained. The ten-player Astra example uses a 128,000-token context budget per request. This is separate from the total game token budget; removing the latter does not remove the context limit.
+
+The viewer shows the selected scenario, both teams' victory conditions, and a Game Master / Storyteller panel. The Game Master is the automated rules engine: it handles night abilities, private information, voting, and victory announcements.
+
+Conversation cards show a numbered speaker, a named recipient (or **Everyone**), and a public-speech or private-whisper label. Gold cards are Game Master announcements. Use **Detailed log** to inspect technical records. The role roster follows the replay position and selected perspective; **Reveal all roles · Storyteller view** exposes the actual assignments. Public and player views keep other roles hidden. The expandable character guide lists every possible role in the selected script, not the current game's assignments.
 
 ## Rules and simulation policy
 
@@ -138,7 +146,7 @@ Conversation cards show a numbered speaker, a named recipient (or **Everyone**),
 
 The seed reproduces setup, mock decisions and storyteller choices **given the same action sequence**. Real model generation is nondeterministic, even where a generation seed is accepted. Replays render recorded events; they never call the model again.
 
-Resource limits are mandatory. `recent` memory pins identity and initial evil-team information and trims the oldest remaining observations to fit. `notes` additionally keeps only the most recent 30 non-pinned events plus the player's own notes. `full` preserves history and interrupts rather than silently truncating. The byte-based context bound is deliberately conservative for unknown provider tokenizers. Persona/rules/legal-actions must fit even after history is removed.
+Day, turn, runtime, and context limits always apply; the total token cap can be disabled with `0`. `recent` memory pins identity and initial evil-team information and trims the oldest remaining observations to fit. `notes` additionally keeps only the most recent 30 non-pinned events plus the player's own notes. `full` preserves history and interrupts rather than silently truncating. The byte-based context bound is deliberately conservative for unknown provider tokenizers. Persona/rules/legal-actions must fit even after history is removed.
 
 ## Development and verification
 
